@@ -1,0 +1,93 @@
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<link rel="stylesheet" href="main.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<body>
+    <div class="card" style="text-align: center;">
+        <h2>Environmental Footprint - KgCo2eq</h2>
+
+        <form>
+            <input id="my-text-field" name="text" autocomplete="off" placeholder="Food product">
+        </form>
+
+        <span id=result></span>
+
+    </div>
+</body>
+</html>
+
+<!-- Use jQuery to call the function when the page is loaded -->
+<script>
+    $(document).ready(function() {
+        // Call the function, passing in the ID of the text field
+        makeRequestOnInputChange('my-text-field');
+    });
+</script>
+
+<!-- Define the makeRequestOnInputChange function -->
+<script>
+    let results = [];
+    const api_url = `https://api-prod.harrygobert.org/classify`;
+    // const api_url = `http://localhost:3000/classify`;
+
+
+    function makeRequestOnInputChange(textFieldId) {
+        // Get the text field element by its ID
+        const textField = document.getElementById(textFieldId);
+
+        function clearButtonView() {
+            results.forEach(function (b) {
+                document.body.removeChild(b)
+            })
+            results = [];
+        }
+
+        // Add an event listener that will fire whenever the value of the text field changes
+        textField.addEventListener('input', event => {
+
+            // Get the current value of the text field
+            const textFieldValue = event.target.value;
+
+            clearButtonView();
+
+            if (textFieldValue) {
+
+                fetch(api_url + `?query=${textFieldValue}`)
+                    .then(response => response.json())
+                    .then(r => {
+
+                        let ef_score = r["ef_score"]
+                        let categories = r["categories"];
+
+                        console.log(categories)
+                        console.log(ef_score)
+
+                        clearButtonView();
+
+                        categories.forEach(function(c, i) {
+
+                            let btn = document.createElement("button");
+                            btn.innerHTML = c;
+                            btn.id = c;
+                            document.body.appendChild(btn);
+                            results.push(btn)
+
+                            btn.onclick = function () {
+                                alert(ef_score[i])
+                            }
+
+                        });
+
+                    });
+            }
+
+        });
+}
+</script>
+
+<!-- Warmup Lambda call -->
+<script>
+window.onload = function() {
+    fetch(api_url)
+}
+</script>
