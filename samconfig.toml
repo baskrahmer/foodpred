@@ -1,10 +1,21 @@
 version = 0.1
-[default]
-[default.deploy]
-[default.deploy.parameters]
-stack_name = "harrygobert"
-s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1gdc68npsl4fb"
-s3_prefix = "harrygobert"
+
+[prod]
+[prod.deploy]
+[prod.deploy.parameters]
+stack_name = "prod-harrygobert"
+s3_prefix = "prod_harrygobert"
 region = "eu-central-1"
 capabilities = "CAPABILITY_IAM"
 image_repositories = ["InferenceFunction=977248756071.dkr.ecr.eu-central-1.amazonaws.com/harrygobertf826f914/inferencefunction7c73919drepo"]
+parameter_overrides = "Stage=prod"
+
+[dev]
+[dev.deploy]
+[dev.deploy.parameters]
+stack_name = "dev-harrygobert"
+s3_prefix = "dev_harrygobert"
+region = "eu-central-1"
+capabilities = "CAPABILITY_IAM"
+image_repositories = ["InferenceFunction=977248756071.dkr.ecr.eu-central-1.amazonaws.com/harrygobertf826f914/inferencefunction7c73919drepo"]
+parameter_overrides = "Stage=dev"

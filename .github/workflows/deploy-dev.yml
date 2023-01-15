@@ -1,0 +1,22 @@
+name: deploy_dev
+on:
+  push:
+    branches:
+      - "**"
+  workflow_call:
+
+jobs:
+  deploy_dev:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      aws_region: 'eu-central-1'
+      bucket_name: 'oidc-gha-dev'
+      env: 'dev'
+      stack_name: 'harrygobert'
+    secrets:
+      access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+      secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+      oidc_role_to_assume: ${{ secrets.AWS_OIDC_ROLE_TO_ASSUME_DEV }}
+    permissions:
+      id-token: write # need this for OIDC
+      contents: read

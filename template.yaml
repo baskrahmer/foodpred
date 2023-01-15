@@ -7,13 +7,13 @@ Globals:
     MemorySize: 3008
 
 Parameters:
-  Stage:
+  Env:
     Type: String
     Default: dev
     AllowedValues:
       - prod
       - dev
-    Description: Enter stage name prod or dev.
+    Description: Enter Env name prod or dev.
 
 Resources:
 
@@ -21,18 +21,16 @@ Resources:
     Type: "AWS::CloudFront::Distribution"
     Properties:
       DistributionConfig:
-        DefaultRootObject: "index.html"
         Enabled: true
         HttpVersion: http2
         # List of origins that Cloudfront will connect to
         Origins:
           - Id: s3-website
-            DomainName: !GetAtt S3Bucket.DomainName
-            S3OriginConfig:
-              # Restricting Bucket access through an origin access identity
-              OriginAccessIdentity:
-                Fn::Sub: 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
-        # To connect the CDN to the origins you need to specify behaviours
+            DomainName:  !Select [2, !Split ["/", !GetAtt S3Bucket.WebsiteURL]]
+            CustomOriginConfig:
+              HTTPPort: '80'
+              HTTPSPort: '443'
+              OriginProtocolPolicy: http-only
         DefaultCacheBehavior:
           # Compress resources automatically ( gzip )
           Compress: 'true'
@@ -41,55 +39,23 @@ Resources:
             - HEAD
             - OPTIONS
           ForwardedValues:
-            QueryString: false
+            QueryString: true
           TargetOriginId: s3-website
           ViewerProtocolPolicy: redirect-to-https
         Aliases:
           - harrygobert.org
-          - www.harrygobert.org
         ViewerCertificate:
           SslSupportMethod: sni-only
-          MinimumProtocolVersion: TLSv1.2_2021
+#          MinimumProtocolVersion: TLSv1.2_2021
           AcmCertificateArn: arn:aws:acm:us-east-1:977248756071:certificate/18f9407f-fd9d-47e0-b9c5-ffaa78b22905
-
-#  DNSCertificate:
-#    Type: AWS::CertificateManager::Certificate
-#    Properties:
-#      CertificateTransparencyLoggingPreference: DISABLED
-#      DomainName: harrygobert.org
-#      DomainValidationOptions:
-#        - DomainName: harrygobert.org
-#          HostedZoneId: Z05811542R6T772RGSDBU
-#      ValidationMethod: DNS
 
   DNSAliasRecord:
     Type: AWS::Route53::RecordSetGroup
     Properties:
       HostedZoneId: Z05811542R6T772RGSDBU
       RecordSets:
-        - Name: harrygobert.org
-          Type: A
-          AliasTarget:
-            HostedZoneId: Z2FDTNDATAQYW2
-            DNSName: !GetAtt
-              - CFDistribution
-              - DomainName
-        - Name: harrygobert.org
-          Type: AAAA
-          AliasTarget:
-            HostedZoneId: Z2FDTNDATAQYW2
-            DNSName: !GetAtt
-              - CFDistribution
-              - DomainName
         - Name: www.harrygobert.org
           Type: A
-          AliasTarget:
-            HostedZoneId: Z2FDTNDATAQYW2
-            DNSName: !GetAtt
-              - CFDistribution
-              - DomainName
-        - Name: www.harrygobert.org
-          Type: AAAA
           AliasTarget:
             HostedZoneId: Z2FDTNDATAQYW2
             DNSName: !GetAtt
@@ -105,21 +71,12 @@ Resources:
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      # Change bucket name to reflect your website
-      BucketName: harrygobert.org
-
-
-  wwwS3Bucket:
-    Type: AWS::S3::Bucket
-    Properties:
       AccessControl: PublicRead
       BucketName: www.harrygobert.org
       WebsiteConfiguration:
-        IndexDocument: index.html
-        RoutingRules:
-          - RedirectRule:
-              HostName: harrygobert.org
-              Protocol: https
+        RedirectAllRequestsTo:
+          HostName: harrygobert.org
+          Protocol: https
 
   S3BucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -138,18 +95,18 @@ Resources:
   ApiCertificate:
     Type: AWS::CertificateManager::Certificate
     Properties:
-      DomainName: !Sub api-${Stage}.harrygobert.org
+      DomainName: !Sub api-${Env}.harrygobert.org
       ValidationMethod: DNS
 
   ApiGatewayApi:
     Type: AWS::Serverless::Api
     Properties:
-      StageName: !Ref Stage
+      StageName: !Ref Env
       # SAM will automatically add AllowMethods with a list of methods for this API
       Cors: "'www.harrygobert.org'"
       EndpointConfiguration: REGIONAL
       Domain:
-        DomainName: !Sub api-${Stage}.harrygobert.org
+        DomainName: !Sub api-${Env}.harrygobert.org
         CertificateArn: !Ref ApiCertificate
         Route53:
           HostedZoneName: "harrygobert.org."
@@ -176,11 +133,5 @@ Outputs:
   # Find out more about other implicit resources you can reference within SAM
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   InferenceApi:
-    Description: "API Gateway endpoint URL for Prod stage for Inference function"
-    Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/{Stage}/classify/"
-  InferenceFunction:
-    Description: "Inference Lambda Function ARN"
-    Value: !GetAtt InferenceFunction.Arn
-  InferenceFunctionIamRole:
-    Description: "Implicit IAM Role created for Inference function"
-    Value: !GetAtt InferenceFunctionRole.Arn
+    Description: "API Gateway endpoint URL for Prod Env for Inference function"
+    Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/{Env}/classify/"

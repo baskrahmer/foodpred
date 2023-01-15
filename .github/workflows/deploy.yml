@@ -1,0 +1,56 @@
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      aws_region:
+        required: true
+        type: string
+      bucket_name:
+        required: true
+        type: string
+      env:
+        required: true
+        type: string
+      stack_name:
+        required: true
+        type: string
+    secrets:
+      access_key_id:
+        required: true
+      secret_access_key:
+        required: true
+      oidc_role_to_assume:
+        required: true
+
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+      - uses: aws-actions/setup-sam@v2
+        with:
+          version: 1.59.0
+
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: ${{ secrets.oidc_role_to_assume }}
+          aws-region: ${{ inputs.aws_region }}
+          
+      # TODO action to delete dev stack if running dev deploy
+          
+      # sam build
+      - run: sam build --use-container
+
+      # sam deploy
+      - run: >
+          sam deploy
+          --no-confirm-changeset
+          --no-fail-on-empty-changeset
+          --stack-name ${{ inputs.stack_name }}
+          --s3-bucket ${{ inputs.bucket_name }}
+          --capabilities CAPABILITY_IAM
+          --region ${{ inputs.aws_region }}
+          --parameter-overrides Env=${{ inputs.env }}
