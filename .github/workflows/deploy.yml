@@ -50,7 +50,8 @@ jobs:
           --no-confirm-changeset
           --no-fail-on-empty-changeset
           --stack-name ${{ inputs.stack_name }}
-          --s3-bucket ${{ inputs.bucket_name }}
           --capabilities CAPABILITY_IAM
           --region ${{ inputs.aws_region }}
           --parameter-overrides Env=${{ inputs.env }}
+          --resolve-image-repos
+          --resolve-s3
