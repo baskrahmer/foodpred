@@ -12,7 +12,7 @@ jobs:
       aws_region: 'eu-central-1'
       bucket_name: 'oidc-gha-dev'
       env: 'dev'
-      stack_name: 'harrygobert'
+      stack_name: 'harrygobert-dev'
     secrets:
       access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
       secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}

@@ -14,6 +14,9 @@ Parameters:
       - prod
       - dev
     Description: Enter Env name prod or dev.
+  HostedZone:
+    Type: String
+    Default: Z07569903QPGFXX2UBH2J
 
 Resources:
 
@@ -46,13 +49,12 @@ Resources:
           - harrygobert.org
         ViewerCertificate:
           SslSupportMethod: sni-only
-#          MinimumProtocolVersion: TLSv1.2_2021
           AcmCertificateArn: arn:aws:acm:us-east-1:977248756071:certificate/18f9407f-fd9d-47e0-b9c5-ffaa78b22905
 
   DNSAliasRecord:
     Type: AWS::Route53::RecordSetGroup
     Properties:
-      HostedZoneId: Z05811542R6T772RGSDBU
+      HostedZoneId: !Ref HostedZone
       RecordSets:
         - Name: www.harrygobert.org
           Type: A
