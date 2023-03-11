@@ -1,8 +1,0 @@
-bucket_name: "sam-app-lambdabucket-1heraf9594ymd"
-data_file: "lci_data.yaml"
-emb_matrix: "embeddings.npy"
-raw_names: "raw.npy"
-weights_file: ""
-n_suggestions: 5
-model_name: "model/sentence-transformers_all-MiniLM-L6-v2"
-#model_name: "model/sentence-transformers_distiluse-base-multilingual-cased-v1"
