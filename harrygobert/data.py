@@ -1,183 +1,208 @@
-"""
-This script parses all OpenFoodFacts products that have a corresponding Agribalyse product. In essence, this is similar
-to scraping the following URLs:
-- https://nl.openfoodfacts.org/categories-properties/agribalyse-food-code-known
-- https://nl.openfoodfacts.org/categories-properties/agribalyse-proxy-food-code-known
-
-These products can be used to train a model that makes this mapping on its own. To get the Robotoff products, run the
-following script (instructions in script docstring):
-- https://github.com/openfoodfacts/robotoff/blob/master/scripts/category_dataset.py
-"""
 import os
-from collections import defaultdict
-from pathlib import Path
+import time
+from typing import List
 
-import requests
+import torch
 import yaml
+# from torch.utils.data import Dataset, DataLoader
+from datasets import Dataset, load_from_disk
+from googletrans import Translator
+from tqdm import tqdm
+
+SEPARATOR = ' & '
 
 
-def main(out_path=Path(__file__).parent / '../data'):
-    # Load Robotoff products
-    robotoff_products_path = 'https://static.openfoodfacts.net/data/taxonomies/categories.full.json'
-    robotoff_products = requests.get(robotoff_products_path).json()  # 11434 products
+def make_val_dataset(mapping, off_cats, use_subcats, preprocess_jumbo=True, separator=SEPARATOR):
+    # build up dictionary from OFF cat name "en: ... " to its integer index
+    off_cat_to_idx = {}
+    for i, cat in enumerate(off_cats['tags']):
+        off_cat_to_idx[cat['id']] = i
 
-    # Load Jumbo categories
-    jumbo_to_off_path = Path(os.path.join(out_path, 'jumbo_to_off_mapping.yaml'))
-    jumbo_categories = yaml.safe_load(open(jumbo_to_off_path))
+    jumbo_cats = []
+    off_cats = []
+    for m in mapping.values():
 
-    # Load OFF data
-    off_url = 'https://raw.githubusercontent.com/openfoodfacts/openfoodfacts-server/main/taxonomies/categories.txt'
-    off_taxonomies = requests.get(off_url).text
-
-    # Load Agribalyse data
-    agribalyse_url = 'https://raw.githubusercontent.com/datagir/ecolab-alimentation/master/data/out/Agribalyse.json'
-    agribalyse_data = requests.get(agribalyse_url).json()
-    ciqual_code_dict = {int(p['ciqual_code']): p for p in agribalyse_data}
-
-    # Parse products
-    products = parse_agribalyse(off_taxonomies)
-
-    # Create parametrized mapping function
-    off_to_agribalyse = lambda x: off_to_agribalyse_mapping(x, products=products)
-
-    # Map Jumbo categories to Agribalyse
-    map_jumbo_to_agribalyse(ciqual_code_dict, jumbo_categories, off_to_agribalyse)
-
-    # Map Robotoff products to agribalyse
-    product_to_agribalyse = map_robotoff_to_agribalyse(off_to_agribalyse, robotoff_products)
-
-    # Save to disk
-    if not os.path.exists(out_path):
-        os.mkdir(out_path)
-    yaml.dump(product_to_agribalyse, open(os.path.join(out_path, 'product_to_ciqual.yaml'), 'w'))
-    yaml.dump(ciqual_code_dict, open(os.path.join(out_path, 'ciqual_dict.yaml'), 'w'))
-
-    # Create subdatasets and save to disk
-    ciqual_to_ef_score = {k: v['impact_environnemental']['Score unique EF']['synthese'] for k, v in
-                          ciqual_code_dict.items()}
-    ciqual_to_ef_complete = {k: v['impact_environnemental'] for k, v in ciqual_code_dict.items()}
-    ciqual_to_lci_name = {k: v['LCI_name'] for k, v in ciqual_code_dict.items()}
-    yaml.dump(ciqual_to_ef_score, open(os.path.join(out_path, 'ciqual_to_ef_score.yaml'), 'w'))
-    yaml.dump(ciqual_to_ef_complete, open(os.path.join(out_path, 'ciqual_to_ef_complete.yaml'), 'w'))
-    yaml.dump(ciqual_to_lci_name, open(os.path.join(out_path, 'ciqual_to_lci_name.yaml'), 'w'))
-
-    # Dict for textual category to EF
-    tmp = {ciqual_to_lci_name[k]: v for k, v in ciqual_to_ef_score.items()}
-    ef_dict = dict(sorted(tmp.items(), key=lambda x: x[1], reverse=True))
-
-    # Dict for numeric category to EF
-    tmp = {k: v for k, v in ciqual_to_ef_score.items()}
-    ef_dict = dict(sorted(tmp.items(), key=lambda x: x[1], reverse=True))
-
-
-def map_jumbo_to_agribalyse(ciqual_code_dict, categories, off_to_agribalyse):
-    jumbo_to_agribalyse = dict()
-    for cat in categories.values():
-        if not cat:
-            continue
-        agribalyse_cat = off_to_agribalyse(cat['off_category'])
-        if agribalyse_cat and agribalyse_cat in ciqual_code_dict:
-            jumbo_to_agribalyse[cat['title'].split(' --> ')[-1]] = agribalyse_cat
-    print(f'Total Jumbo mappings: {len(categories)}')
-    print(
-        f'Total mapped to Agribalyse: {len(jumbo_to_agribalyse)} ({round(100 * len(jumbo_to_agribalyse) / len(categories), 2)}%)')
-    print(f'Total Agribalyse categories: {len(ciqual_code_dict)}')
-
-
-def map_robotoff_to_agribalyse(off_to_agribalyse, train):
-    product_to_agribalyse = {}
-
-    # Keys are standardized form of 'name' value (lowercase, hyphens etc) and thus ignored
-    for t in train.values():
-
-        agribalyse_parents = [off_to_agribalyse(p) for p in t.get('parents', []) if off_to_agribalyse(p)]
-        if not agribalyse_parents:
+        if m['off_category'] not in off_cat_to_idx:
+            # TODO: log this
             continue
 
-        for lang, product_name in t['name'].items():
-            if lang not in product_to_agribalyse:
-                product_to_agribalyse[lang] = {}
-            product_to_agribalyse[lang][product_name] = agribalyse_parents
+        # get/preprocess Jumbo categories
+        title = m['title']
+        if not use_subcats:
+            title = title.split(' --> ')[-1]
+        elif preprocess_jumbo:
+            title = separator.join(reversed(title.split(' --> ')))
+        jumbo_cats.append(title)
 
-    return product_to_agribalyse
+        # link OFF categories to idx
+        off_cats.append(off_cat_to_idx[m['off_category']])
 
-
-def parse_agribalyse(off_to_agribalyse_data):
-    synonyms_dict = defaultdict(dict)
-    stopwords_dict = defaultdict(dict)
-
-    curr_product = set()
-    canonical = None
-    products = {}
-
-    for line in off_to_agribalyse_data.split('\n'):
-
-        # Ignore comments
-        if line.startswith('#'):
-            continue
-
-        # Parse synonyms
-        elif line.startswith('synonyms'):
-            _, language, synonyms = line.split(':')
-            synonyms = [s.strip() for s in synonyms.split(',')]
-            for s in synonyms:
-                synonyms_dict[language][s] = set(synonyms)
-
-        # Parse stopwords
-        elif line.startswith('stopwords'):
-            _, language, stopwords = line.split(':')
-            stopwords = [s.strip() for s in stopwords.split(',')]
-            for s in stopwords:
-                stopwords_dict[language][s] = set(stopwords)
-
-        # Attributes of current product
-        elif line:
-
-            line = line.split(':')
-            attribute, value = line[0], ':'.join(line[1:])
-
-            for v in value.split(', '):
-
-                v = v.lower().replace(' ', '-')
-                if attribute.startswith('<'):
-                    pass  # TODO any parent-specific processing goes here
-                elif canonical is None:
-                    canonical = ':'.join([attribute, v])
-
-                curr_product.add(':'.join([attribute, v]))
-
-        # End of current product
-        else:
-
-            if curr_product:
-                products[canonical] = curr_product
-
-            # End of product
-            curr_product = set()
-            canonical = None
-
-    return products
+    return Dataset.from_dict({'text': jumbo_cats, 'label': off_cats})
 
 
-def off_to_agribalyse_mapping(off_cat, products):
-    """Return an empty string if no Agribalyse mapping exists"""
+def make_off_dataset(off_cats):
+    off_names = []
 
-    if off_cat not in products:
-        return ''
-    product = products[off_cat]
+    for cat in off_cats['tags']:
+        off_names.append(cat['name'])
 
-    for attribute in product:
-        if 'food_code' in attribute and 'agribalyse' in attribute:
-            return int(attribute.split(':')[-1].split('_')[0])
-
-    for attribute in product:
-        if attribute.startswith('<'):
-            parent_off_category = off_to_agribalyse_mapping(attribute[1:], products)
-            if parent_off_category:
-                return parent_off_category
-
-    return ''
+    return Dataset. \
+        from_dict({'text': off_names, 'label': list(range(len(off_names)))})
 
 
-if __name__ == '__main__':
-    main()
+def map_subcats_to_classes(jumbo_cats, separator=SEPARATOR) -> List[str]:
+    classes = []
+
+    def recursive_helper(products, cat_str):
+
+        for product in products:
+
+            title = product.get('title')
+            class_str = title + (separator + cat_str if cat_str else '')
+
+            if product.get('subCategories'):
+                recursive_helper(product.get('subCategories'), class_str)
+            else:
+                classes.append(class_str)
+
+    recursive_helper(jumbo_cats, '')
+
+    return classes
+
+
+class ValidationDataset(Dataset):
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __len__(self):
+        return len(self.x)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        return self.x[idx], self.y[idx]
+
+
+class MappingDataset(Dataset):
+
+    def __init__(self, x):
+        self.x = x
+
+    def __len__(self):
+        return len(self.x)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        return self.x[idx], idx
+
+
+def make_agribalyse_data_loaders(agribalyse_path, ciqual_path, config, languages={'nl', 'en'}, data_path='data/cache'):
+    products_path = os.path.join('train_ds')
+    identity_path = os.path.join('val_ds')
+
+    if config.use_cached and os.path.exists(products_path) and os.path.exists(identity_path):
+        print("Loading cached data")
+        train_ds = load_from_disk(products_path)
+        val_ds = load_from_disk(identity_path)
+
+    else:
+        # Load data from disk
+        source_data = yaml.safe_load(open(agribalyse_path))
+        ciqual_dict = yaml.safe_load(open(ciqual_path))  # This takes a while
+        n_labels = len(ciqual_dict.keys())
+
+        # Mapping between product code and label index
+        ciqual_to_idx = {}
+        idx_to_ciqual = {}
+        for idx, ciqual_code in enumerate(ciqual_dict.keys()):
+            ciqual_to_idx[ciqual_code] = idx
+            idx_to_ciqual[idx] = ciqual_code
+
+        # Extract natural language description of LCI categories
+        names, labels = [], []
+        for idx, (ciqual_code, product) in enumerate(tqdm(ciqual_dict.items(), desc='Mapping identity')):
+            names.append(product['LCI_name'])
+            labels.append([float(i == idx) for i in range(n_labels)])
+        identity = Dataset.from_dict({'text': names, 'label': labels})
+
+        names, labels = [], []
+        for lang in languages:
+            for product, ciqual_codes in tqdm(source_data[lang].items(), desc=f'Mapping {lang} products'):
+                ciqual_codes = {c for c in ciqual_codes if c in ciqual_dict}
+                ciqual_codes = {ciqual_to_idx[i] for i in ciqual_codes}
+                if ciqual_codes:
+                    names.append(product)
+                    labels.append([int(i in ciqual_codes) / len(ciqual_codes) for i in range(n_labels)])
+        products = Dataset.from_dict({'text': names, 'label': labels})
+
+        products.save_to_disk(products_path)
+        identity.save_to_disk(identity_path)
+
+        train_ds = products
+        val_ds = identity
+
+    return train_ds, val_ds
+
+
+def get_data(jumbo_path, off_path, mapping_path, config):
+    # jumbo_cats = yaml.safe_load(open(jumbo_path, 'r'))
+    # jumbo_flattened = map_subcats_to_classes(jumbo_cats)
+
+    if config.use_cached:
+        print("Loading cached data")
+        train_ds = load_from_disk('data/cache/train_ds')
+        val_ds = load_from_disk('data/cache/val_ds')
+
+    else:
+
+        off_cats = yaml.safe_load(open(off_path, 'rb'))
+        jumbo_to_off_mapping = yaml.safe_load(open(mapping_path, 'r'))
+
+        train_ds = make_off_dataset(off_cats)
+        val_ds = make_val_dataset(jumbo_to_off_mapping, off_cats, use_subcats=config.use_subcats)
+
+        if config.debug:
+            train_ds, val_ds = sample_data(train_ds, val_ds)
+
+        if config.translate:
+            val_ds = translate_data(val_ds)
+
+        # Cache the data
+        if not config.debug:
+            print("Caching data")
+            train_ds.save_to_disk('data/cache/train_ds')
+            val_ds.save_to_disk('data/cache/val_ds')
+
+    return train_ds, val_ds
+
+
+class DutchToEnglishTranslator:
+
+    def __init__(self):
+        self.translator = Translator()
+        self.n_sleep = 60
+
+    def __call__(self, text, max_retries=10, *args, **kwargs):
+
+        if max_retries == 0:
+            raise RuntimeError
+
+        try:
+            return self.translator.translate(text, src='nl').text
+        except:
+            time.sleep(self.n_sleep)
+            return self(text, max_retries - 1)
+
+
+def sample_data(train, val):
+    return train.select(range(10)), val.select(range(10))
+
+
+def translate_data(val):
+    translator = DutchToEnglishTranslator()
+    return val.map(lambda x: {'text': translator(x['text'])})

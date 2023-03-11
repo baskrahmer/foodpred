@@ -11,6 +11,9 @@ harrygobert = "harrygobert.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.10"
+torch = "^1.13.1"
+datasets = "^2.10.1"
+googletrans = "^3.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
