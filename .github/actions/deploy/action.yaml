@@ -19,24 +19,26 @@ runs:
   using: "composite"
   steps:
 
-  - name: Terraform setup
-    uses: hashicorp/setup-terraform@v2
-    with:
-      terraform_version: 1.2.0
+    - name: Terraform setup
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.2.0
 
-  - name: Configure AWS credentials
-    uses: aws-actions/configure-aws-credentials@v1
-    with:
-      role-to-assume: ${{ inputs.role_arn }}
-      role-session-name: OIDCSession
-      aws-region: eu-central-1
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        role-to-assume: ${{ inputs.role_arn }}
+        role-session-name: OIDCSession
+        aws-region: eu-central-1
 
-  - name: Terraform providers
-    run: terraform init -backend-config="bucket=${{ inputs.state_bucket }}"
-    shell: bash
+    - name: Terraform providers
+      run: terraform init -backend-config="bucket=${{ inputs.state_bucket }}"
+      shell: bash
+      working-directory: ./terraform
 
-  - name: Terraform deploy
-    run: terraform apply -var-file=vars/${{ inputs.env }}.tfvars -auto-approve
-    shell: bash
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare_api_token }}
+    - name: Terraform deploy
+      run: terraform apply -var-file=./vars/${{ inputs.env }}.tfvars -auto-approve
+      shell: bash
+      working-directory: ./terraform
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare_api_token }}
