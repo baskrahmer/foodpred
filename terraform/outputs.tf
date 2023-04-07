@@ -7,9 +7,5 @@ output "bucket_url" {
 }
 
 output "api_gateway_url" {
-  value = aws_apigatewayv2_api.lambda.api_endpoint
-}
-
-output "invoke_url" {
-  value = aws_apigatewayv2_stage.default.invoke_url
+  value = aws_apigatewayv2_domain_name.api_domain.domain_name_configuration[0].target_domain_name
 }

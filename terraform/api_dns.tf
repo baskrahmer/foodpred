@@ -26,11 +26,11 @@ resource "cloudflare_record" "api" {
   zone_id = data.cloudflare_zones.domain.zones[0].id
 
   name  = "api"
-  value = split("/", aws_apigatewayv2_stage.default.invoke_url)[2]
+  value = aws_apigatewayv2_domain_name.api_domain.domain_name_configuration[0].target_domain_name
   type  = "CNAME"
 
   ttl     = 1
-  proxied = false
+  proxied = true
 }
 
 resource "aws_apigatewayv2_domain_name" "api_domain" {
