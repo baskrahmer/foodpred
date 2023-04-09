@@ -1,0 +1,4 @@
+data_file: "lci_data.yaml"
+raw_names: "raw.npy"
+n_suggestions: 5
+model_path: "./model"

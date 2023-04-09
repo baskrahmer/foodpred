@@ -8,11 +8,8 @@ inputs:
   role_arn:
     description: 'ARN of the IAM role to assume'
     required: true
-  state_bucket:
-    description: 'Bucket name of the Terraform S3 backend'
-    required: true
-  cloudflare_api_token:
-    description: 'API token for CloudFlare'
+  ecr_repository:
+    description: 'ECR repo name (look in /terraform/vars/env.vars for dev/prod values)'
     required: true
 
 runs:
@@ -32,11 +29,12 @@ runs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-#    - name: Build, tag, and push image to Amazon ECR
-#      env:
-#        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-#        ECR_REPOSITORY: docker_nodejs_demo
-#        IMAGE_TAG: nodejs_demo_image
-#      run: |
-#        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-#        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+    - name: Build, tag, and push image to Amazon ECR
+      shell: bash
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ inputs.ecr_repository }}
+        IMAGE_TAG: latest
+      run: |
+        docker build -f Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG app/
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
