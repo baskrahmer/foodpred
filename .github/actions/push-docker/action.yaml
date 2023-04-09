@@ -1,0 +1,42 @@
+name: Deploy Environment
+description: "Runs environment-specific deployment"
+
+inputs:
+  env:
+    description: 'The deployment environment (dev/prod)'
+    required: true
+  role_arn:
+    description: 'ARN of the IAM role to assume'
+    required: true
+  state_bucket:
+    description: 'Bucket name of the Terraform S3 backend'
+    required: true
+  cloudflare_api_token:
+    description: 'API token for CloudFlare'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        role-to-assume: ${{ inputs.role_arn }}
+        role-session-name: OIDCSession
+        aws-region: eu-central-1
+
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+#    - name: Build, tag, and push image to Amazon ECR
+#      env:
+#        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#        ECR_REPOSITORY: docker_nodejs_demo
+#        IMAGE_TAG: nodejs_demo_image
+#      run: |
+#        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+#        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG

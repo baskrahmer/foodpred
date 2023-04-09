@@ -15,6 +15,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Update Docker image
+        uses: ./.github/actions/push-docker
+        with:
+          env: dev
+          role_arn: ${{ secrets.DEV_DEPLOY_ROLE }}
+
       - name: Deploy to dev
         uses: ./.github/actions/deploy
         with:
@@ -36,6 +42,12 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Update Docker image
+        uses: ./.github/actions/push-docker
+        with:
+          env: prod
+          role_arn: ${{ secrets.PROD_DEPLOY_ROLE }}
 
       - name: Deploy to prod
         uses: ./.github/actions/deploy
