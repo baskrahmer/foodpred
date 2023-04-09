@@ -21,6 +21,11 @@ data "archive_file" "python_lambda_package" {
 }
 
 resource "aws_lambda_function" "lambda_test_function" {
+  #  function_name = "lambdaTest"
+  #  image_uri     = "${aws_ecrpublic_repository.repo.repository_uri}@${data.aws_ecr_image.lambda_image.id}"
+  #  package_type  = "Image"
+  #  role          = aws_iam_role.lambda_role.arn
+  #  timeout       = 300
   function_name    = "lambdaTest"
   filename         = "nametest.zip"
   source_code_hash = data.archive_file.python_lambda_package.output_base64sha256
