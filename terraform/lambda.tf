@@ -7,25 +7,12 @@ data "aws_iam_policy_document" "lambda_assume_role_policy" {
       identifiers = ["lambda.amazonaws.com"]
     }
   }
-
-  statement {
-    effect  = "Allow"
-    actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents"
-    ]
-    #    resources = ["arn:aws:logs:*:*:*"]
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
-  }
 }
 
 resource "aws_iam_role" "lambda_role" {
-  name               = "lambda-lambdaRole-waf"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role_policy.json
+  name                = "lambda-lambdaRole-waf"
+  assume_role_policy  = data.aws_iam_policy_document.lambda_assume_role_policy.json
+  managed_policy_arns = ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
 }
 
 #data "archive_file" "python_lambda_package" {
