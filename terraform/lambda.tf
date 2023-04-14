@@ -22,18 +22,15 @@ resource "aws_iam_role" "lambda_role" {
 #}
 
 resource "aws_lambda_function" "lambda_test_function" {
-  function_name = "lambdaTest"
+  function_name = "foodpred"
   image_uri     = "594760667920.dkr.ecr.eu-central-1.amazonaws.com/foodpred:latest"
   package_type  = "Image"
   role          = aws_iam_role.lambda_role.arn
-  timeout       = 300
-  #  function_name    = "lambdaTest"
-  #  filename         = "nametest.zip"
-  #  source_code_hash = data.archive_file.python_lambda_package.output_base64sha256
-  #  role             = aws_iam_role.lambda_role.arn
-  #  runtime          = "python3.9"
-  #  handler          = "lambda_function.lambda_handler"
-  #  timeout          = 10
+  timeout       = 30
+  memory_size   = 4096
+  ephemeral_storage {
+    size = 4096 # Min 512 MB and the Max 10240 MB
+  }
 }
 
 resource "aws_cloudwatch_event_rule" "lambda_test" {
