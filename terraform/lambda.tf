@@ -7,6 +7,20 @@ data "aws_iam_policy_document" "lambda_assume_role_policy" {
       identifiers = ["lambda.amazonaws.com"]
     }
   }
+
+  statement {
+    effect  = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    #    resources = ["arn:aws:logs:*:*:*"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
 }
 
 resource "aws_iam_role" "lambda_role" {

@@ -2,7 +2,7 @@ resource "aws_apigatewayv2_api" "lambda" {
   name                         = "apigw-http-lambda"
   protocol_type                = "HTTP"
   description                  = "Example"
-  disable_execute_api_endpoint = false
+  disable_execute_api_endpoint = true
 
   cors_configuration {
     allow_credentials = false
