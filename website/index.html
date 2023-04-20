@@ -1,12 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Hello World</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Slab&display=swap" rel="stylesheet">
+    <title>EcoScore Calculator</title>
 </head>
 <body>
-<!-- Your "Hello World" message here -->
-<h1 class="moving-text">harrygobert</h1>
+<header>
+    <nav>
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="about.html">About</a></li>
+        </ul>
+    </nav>
+</header>
+<main>
+    <div class="container">
+        <h1>EcoScore Calculator</h1>
+        <div class="input-container">
+            <input type="text" id="foodInput" placeholder="Enter food product" oninput="calculateEcoScore()">
+            <p class="result" id="ecoScore">EcoScore: <span id="ecoScoreValue">-</span></p>
+            <p class="result" id="probability">Probability: <span id="probabilityValue">-</span></p>
+        </div>
+    </div>
+</main>
+<script>
+        async function calculateEcoScore() {
+            const foodInput = document.getElementById("foodInput").value;
+            if (foodInput.trim() === "") return;
+
+            const response = await fetch("YOUR_LAMBDA_API_ENDPOINT", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ food: foodInput }),
+            });
+
+            const { EcoScore, probability } = await response.json();
+
+            document.getElementById("ecoScoreValue").innerText = EcoScore;
+            document.getElementById("probabilityValue").innerText = probability;
+        }
+
+</script>
 </body>
 </html>

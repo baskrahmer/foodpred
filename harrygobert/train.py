@@ -1,18 +1,18 @@
 import argparse
-import os
-
 import numpy as np
+import os
 import torch
 from optimum.intel import INCQuantizer
 from transformers import AutoTokenizer
 from transformers import TrainingArguments
+from typing import Callable
 
 from harrygobert.data import make_agribalyse_data_loaders
 from harrygobert.model.model import OFFClassificationModel
 from train_tools import compute_metrics, CustomCallback, CustomTrainer
 
 
-def get_model_fn(cfg):
+def get_model_fn(cfg) -> Callable:
     def get_model():
         model = OFFClassificationModel(
             model_name=cfg.model_name,
@@ -72,9 +72,9 @@ def main(cfg):
         overwrite_output_dir=True,
         run_name=cfg.run_name,
         warmup_ratio=cfg.warmup_ratio,
-        eval_steps=100,
-        fp16=False,
-        # weight_decay=0.01
+        eval_steps=cfg.eval_steps,
+        fp16=True,
+        weight_decay=cfg.weight_decay
     )
 
     trainer = CustomTrainer(
@@ -87,39 +87,23 @@ def main(cfg):
     )
 
     trainer.add_callback(CustomCallback(trainer))
-    # trainer.train()
+
+    if cfg.grid_search:
+        trainer.hyperparameter_search(
+            direction="maximize",
+            backend="ray",
+            n_trials=1
+        )
+    else:
+        trainer.train()
 
     torch.save(trainer.model, f=os.path.join(cfg.save_dir, "model.pt"))
     torch.save(tokenizer, f=os.path.join(cfg.save_dir, "tokenizer.pt"))
 
-    state_dict = trainer.model.state_dict()
-
-    torch.onnx.export(trainer.model)
-
-    # torch.jit.trace(trainer.model, f=os.path.join(cfg.save_dir, "model_jit.pt"))
-
-    # trainer.save_model(cfg.save_dir)
-
-    # trainer.hyperparameter_search(
-    #     direction="maximize",
-    #     backend="ray",
-    #     n_trials=1
-    # )
-
-    # # Set the accepted accuracy loss to 5%
-    # accuracy_criterion = AccuracyCriterion(tolerable_loss=0.05)
-    # # Set the maximum number of trials to 10
-    # tuning_criterion = TuningCriterion(max_trials=10)
-    # quantization_config = PostTrainingQuantConfig(
-    #     approach="dynamic", accuracy_criterion=accuracy_criterion, tuning_criterion=tuning_criterion
-    # )
-    # quantizer = INCQuantizer.from_pretrained(trainer.model, eval_fn=eval_fn)
-    # quantizer.quantize(quantization_config=quantization_config, save_directory=save_dir)
-
     # TODO: set up (cross-)validation procedure
     # TODO: Output mapping in correct format
 
-    if False:
+    if cfg.quantize:
         from neural_compressor.config import PostTrainingQuantConfig, TuningCriterion, AccuracyCriterion
 
         model = trainer.model
@@ -135,7 +119,7 @@ def main(cfg):
         from neural_compressor.quantization import fit
 
         q_model = fit(model=model, conf=conf, calib_dataloader=val, eval_func=eval_func)
-    if False:
+    if cfg.quantize:
         model = trainer.model
         model.config = model.base_model.config
 
@@ -155,6 +139,8 @@ def main(cfg):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
+    root_path = os.path.abspath(os.path.join(__file__, "../.."))
+
     # Training settings
     parser.add_argument('--debug', default=False, type=bool, help='Debug mode')
     parser.add_argument('--model_name', default="distilbert-base-multilingual-cased", type=str,
@@ -165,16 +151,32 @@ if __name__ == '__main__':
     parser.add_argument('--max_len', default=32, type=int, help='Maximum sequence length')
     parser.add_argument('--num_epochs', default=20, type=int, help='Number of epochs to train for')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='Learning rate for optimizer')
-    parser.add_argument('--save_dir', default="../model", type=str, help='Path to save trained model to')
+    parser.add_argument('--weight_decay', default=1e-8, type=float, help='Weight decay')
+    parser.add_argument('--eval_steps', default=100, type=int, help='After how many steps to do evaluation')
+    parser.add_argument('--grid_search', default=False, type=bool, help='Whether to run grid search')
+    parser.add_argument('--n_folds', default=1, type=int,
+                        help='Number of cross-validation folds. 0 trains on full data.')
+
+    # Artefact settings
+    parser.add_argument('--save_dir', default=os.path.join(root_path, 'model'), type=str,
+                        help='Path to save trained model to')
+    parser.add_argument('--quantize', default=False, type=bool, help='Whether or not to quantize the output model')
 
     # Data settings
     parser.add_argument('--translate', default=True, type=bool, help='Whether to translate text')
-    parser.add_argument('--use_cached', default=True, type=bool, help='Whether to use cached data')
+    parser.add_argument('--use_cached', default=False, type=bool, help='Whether to use cached data')
     parser.add_argument('--use_subcats', default=False, type=bool, help='Whether to use sub-categories')
     parser.add_argument('--n_classes', default=2473, type=int, help='Number of classes')
-    parser.add_argument('--agribalyse_path', default='../data/product_to_ciqual.yaml', type=str,
+    parser.add_argument('--agribalyse_path',
+                        default=os.path.join(root_path, 'data/product_to_ciqual.yaml'), type=str,
                         help='Path to Agribalyse data')
-    parser.add_argument('--ciqual_dict', default='../data/ciqual_dict.yaml', type=str, help='Path to CIQUAL data')
+    parser.add_argument('--ciqual_dict', default=os.path.join(root_path, 'data/ciqual_dict.yaml'),
+                        type=str,
+                        help='Path to CIQUAL data')
+    parser.add_argument('--csv_path', default=os.path.join(root_path, 'data/products.csv'), type=str,
+                        help='Path to CSV products data')
+    parser.add_argument('--cache_path', default=os.path.join(root_path, 'data/cache'), type=str,
+                        help='Path to CSV products data')
 
     # Logging settings
     parser.add_argument('--run_name', default="HGV-debug", type=str, help='Name of the run')

@@ -1,13 +1,12 @@
 import os
 import time
-from typing import List
-
 import torch
 import yaml
 # from torch.utils.data import Dataset, DataLoader
 from datasets import Dataset, load_from_disk
 from googletrans import Translator
 from tqdm import tqdm
+from typing import List
 
 SEPARATOR = ' & '
 
@@ -102,8 +101,8 @@ class MappingDataset(Dataset):
 
 
 def make_agribalyse_data_loaders(agribalyse_path, ciqual_path, config, languages={'nl', 'en'}, data_path='data/cache'):
-    products_path = os.path.join('train_ds')
-    identity_path = os.path.join('val_ds')
+    products_path = os.path.join(config.cache_path, 'train_ds')
+    identity_path = os.path.join(config.cache_path, 'val_ds')
 
     if config.use_cached and os.path.exists(products_path) and os.path.exists(identity_path):
         print("Loading cached data")
