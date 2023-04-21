@@ -1,104 +1,53 @@
 import argparse
-import numpy as np
 import os
+
+import onnxruntime as ort
 import torch
+import wandb.errors
+from lightning import Trainer
 from optimum.intel import INCQuantizer
+from pytorch_lightning.loggers import WandbLogger
 from transformers import AutoTokenizer
-from transformers import TrainingArguments
-from typing import Callable
+from transformers import PreTrainedTokenizerFast
 
-from harrygobert.data import make_agribalyse_data_loaders
+from harrygobert.data import get_product_loaders
 from harrygobert.model.model import OFFClassificationModel
-from train_tools import compute_metrics, CustomCallback, CustomTrainer
-
-
-def get_model_fn(cfg) -> Callable:
-    def get_model():
-        model = OFFClassificationModel(
-            model_name=cfg.model_name,
-            n_classes=cfg.n_classes
-        )
-
-        for p in model.base_model.parameters():
-            p.requires_grad = False
-
-        return model
-
-    return get_model
 
 
 def main(cfg):
-    try:
-        import wandb
-        wandb.login()
-        use_wandb = True
-    except Exception:
-        print("Weights & Biases not configured properly")
-        use_wandb = False
+    if cfg.use_wandb:
+        wandb_logger = get_wandb_logger(cfg)
 
-    val, train = make_agribalyse_data_loaders(
-        agribalyse_path=cfg.agribalyse_path,
-        ciqual_path=cfg.ciqual_dict,
-        config=cfg
-    )
-
+    model = OFFClassificationModel(cfg)
     tokenizer = AutoTokenizer.from_pretrained(cfg.model_name)
-
-    tokenize_fn = lambda x: tokenizer(x['text'], truncation=True, max_length=cfg.max_len)
-    train = train.map(tokenize_fn, batched=True)
-    val = val.map(tokenize_fn, batched=True)
-
-    train_class_weights = np.zeros(cfg.n_classes)
-    for t in train:
-        train_class_weights += np.array(t['label']) / cfg.n_classes
-
-    val_class_weights = np.zeros(cfg.n_classes)
-    for v in val:
-        val_class_weights += np.array(v['label']) / cfg.n_classes
-
-    training_args = TrainingArguments(
-        output_dir="test_trainer",
-        do_eval=True,
-        report_to="wandb" if use_wandb else "all",
-        evaluation_strategy="steps",
-        logging_strategy="steps",
-        per_device_train_batch_size=cfg.batch_size,
-        per_device_eval_batch_size=cfg.batch_size,
-        gradient_accumulation_steps=cfg.n_accumulation_steps,
-        learning_rate=cfg.learning_rate,
-        logging_steps=1,
-        log_on_each_node=False,
-        num_train_epochs=cfg.num_epochs,
-        overwrite_output_dir=True,
-        run_name=cfg.run_name,
-        warmup_ratio=cfg.warmup_ratio,
-        eval_steps=cfg.eval_steps,
-        fp16=True,
-        weight_decay=cfg.weight_decay
+    tokenize_fn = lambda x: tokenizer(
+        x,
+        truncation=True,
+        max_length=cfg.max_len,
+        return_tensors='pt',
+        padding="max_length"
     )
 
-    trainer = CustomTrainer(
-        model_init=get_model_fn(cfg),
-        args=training_args,
-        train_dataset=train,
-        eval_dataset=val,
-        compute_metrics=compute_metrics,
-        tokenizer=tokenizer
+    train, val = get_product_loaders(cfg, tokenize_fn)
+
+    # val, train = make_agribalyse_data_loaders(config=cfg)
+    # train = train.map(tokenize_fn, batched=True)
+    # val = val.map(tokenize_fn, batched=True)
+
+    trainer = Trainer(
+        accelerator="auto",
+        max_steps=cfg.num_steps,
+        logger=wandb_logger if cfg.use_wandb else None
     )
 
-    trainer.add_callback(CustomCallback(trainer))
+    trainer.fit(
+        model=model,
+        train_dataloaders=train,
+        val_dataloaders=val,
+    )
 
     if cfg.grid_search:
-        trainer.hyperparameter_search(
-            direction="maximize",
-            backend="ray",
-            n_trials=1
-        )
-    else:
-        trainer.train()
-
-    torch.save(trainer.model, f=os.path.join(cfg.save_dir, "model.pt"))
-    torch.save(tokenizer, f=os.path.join(cfg.save_dir, "tokenizer.pt"))
+        raise NotImplementedError
 
     # TODO: set up (cross-)validation procedure
     # TODO: Output mapping in correct format
@@ -119,7 +68,7 @@ def main(cfg):
         from neural_compressor.quantization import fit
 
         q_model = fit(model=model, conf=conf, calib_dataloader=val, eval_func=eval_func)
-    if cfg.quantize:
+
         model = trainer.model
         model.config = model.base_model.config
 
@@ -135,6 +84,57 @@ def main(cfg):
             save_directory=cfg.save_dir,
         )
 
+    model.eval()
+
+    tokenizer_json_path = "./tokenizer"
+    onnx_model_path = "./model.onnx"
+
+    tokenizer.save_pretrained(tokenizer_json_path)
+
+    # You may need to adjust the input size based on your specific model architecture
+    input_size = (1, cfg.max_len)  # Example: (batch_size, sequence_length)
+
+    dummy_input = torch.ones(input_size, dtype=torch.long, device="cpu")
+    dynamic_axes = {
+        "input": {0: "batch_size", 1: "sequence_length"},
+        "output": {0: "batch_size", 1: "sequence_length"},
+    }
+    torch.onnx.export(
+        model,
+        dummy_input,
+        onnx_model_path,
+        opset_version=12,
+        input_names=["input"],
+        output_names=["output"],
+        dynamic_axes=dynamic_axes,
+    )
+
+    ort_session = ort.InferenceSession(onnx_model_path)
+    tokenizer = PreTrainedTokenizerFast.from_pretrained(tokenizer_json_path)
+
+    input_text = "Your input text goes here"
+
+    tokens = tokenizer(input_text, return_tensors="pt")
+    input_ids = tokens["input_ids"].numpy()
+
+    # Run the ONNX model
+    ort_inputs = {ort_session.get_inputs()[0].name: input_ids}
+    ort_outputs = ort_session.run(None, ort_inputs)
+
+    # Process the output as needed
+    output = ort_outputs[0]
+    # todo assertions for output shape; sum of probabilities
+
+
+def get_wandb_logger(cfg):
+    try:
+        wandb_logger = WandbLogger(project="harrygobert")
+    except wandb.errors.UsageError:
+        from getpass import getpass
+        wandb.login(key=getpass("wandb API token:"))
+        wandb_logger = WandbLogger(project="harrygobert")
+    return wandb_logger
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -142,14 +142,14 @@ if __name__ == '__main__':
     root_path = os.path.abspath(os.path.join(__file__, "../.."))
 
     # Training settings
-    parser.add_argument('--debug', default=False, type=bool, help='Debug mode')
+    parser.add_argument('--debug', default=True, type=bool, help='Debug mode')
     parser.add_argument('--model_name', default="distilbert-base-multilingual-cased", type=str,
                         help='Name of the pre-trained model')
     parser.add_argument('--n_accumulation_steps', default=1, type=int, help='Number of steps to accumulate gradients')
     parser.add_argument('--batch_size', default=64, type=int, help='Batch size for training')
     parser.add_argument('--warmup_ratio', default=0.1, type=float, help='Ratio of steps for warmup phase')
     parser.add_argument('--max_len', default=32, type=int, help='Maximum sequence length')
-    parser.add_argument('--num_epochs', default=20, type=int, help='Number of epochs to train for')
+    parser.add_argument('--num_steps', default=100, type=int, help='Number of steps to train for')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='Learning rate for optimizer')
     parser.add_argument('--weight_decay', default=1e-8, type=float, help='Weight decay')
     parser.add_argument('--eval_steps', default=100, type=int, help='After how many steps to do evaluation')
@@ -180,6 +180,7 @@ if __name__ == '__main__':
 
     # Logging settings
     parser.add_argument('--run_name', default="HGV-debug", type=str, help='Name of the run')
+    parser.add_argument('--use_wandb', default=True, type=bool, help='Whether to use wandb')
 
     args = parser.parse_args()
 

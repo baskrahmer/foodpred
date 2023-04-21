@@ -1,15 +1,18 @@
 import torch
+from lightning import LightningModule
 from torch import nn as nn
-from transformers import AutoModel
+from transformers import AutoModel, get_linear_schedule_with_warmup
 
 
-class OFFClassificationModel(nn.Module):
+class OFFClassificationModel(LightningModule):
 
-    def __init__(self, model_name, n_classes):
-        super(OFFClassificationModel, self).__init__()
-        self.base_model = AutoModel.from_pretrained(model_name)
+    def __init__(self, cfg):
+        super().__init__()
+        self.lr = cfg.learning_rate
+        self.num_steps = cfg.num_steps
+        self.base_model = AutoModel.from_pretrained(cfg.model_name)
         self.dropout = nn.Dropout(0.2)
-        self.readout = nn.Linear(self.base_model.config.hidden_size, n_classes)
+        self.readout = nn.Linear(self.base_model.config.hidden_size, cfg.n_classes)
         self.loss = nn.CrossEntropyLoss()
 
     @staticmethod
@@ -21,6 +24,19 @@ class OFFClassificationModel(nn.Module):
         mean_embeddings = sum_embeddings / sum_mask
         return mean_embeddings
 
+    def _get_optimizer_parameters(self):
+
+        base_params = {
+            "params": self.base_model.parameters(),
+            "lr": self.lr
+        }
+        readout_params = {
+            "params": self.readout.parameters(),
+            "lr": self.lr
+        }
+
+        return [base_params, readout_params]
+
     def forward(self, input_ids, attention_mask, labels=None):
         outputs = self.base_model(input_ids, attention_mask=attention_mask).last_hidden_state
         outputs = outputs[:, 0]
@@ -29,10 +45,37 @@ class OFFClassificationModel(nn.Module):
         outputs = self.readout(outputs)
 
         if labels is not None:
-            loss = self.loss(outputs, labels.argmax(axis=-1))
+            loss = self.loss(outputs, labels.long())
             if not self.training:
                 outputs = nn.functional.softmax(outputs, dim=-1)
-            return loss, outputs
+            return outputs, loss
 
         else:
             return nn.functional.softmax(outputs, dim=-1)
+
+    def training_step(self, batch, batch_nb):
+
+        if isinstance(batch, list):
+            batch = batch[0]
+
+        outputs, loss = self.forward(**batch)
+        return {"loss": loss}
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(
+            params=self._get_optimizer_parameters(),
+            lr=self.lr,
+            betas=(0.9, 0.95),
+        )
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer=optimizer,
+            num_training_steps=self.num_steps,
+            num_warmup_steps=int(0.1 * self.num_steps)
+        )
+        scheduler = {
+            "scheduler": scheduler,
+            "interval": "step",
+            "frequency": 1,
+        }
+
+        return [optimizer], [scheduler]
