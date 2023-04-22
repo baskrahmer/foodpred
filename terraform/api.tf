@@ -6,8 +6,10 @@ resource "aws_apigatewayv2_api" "lambda" {
 
   cors_configuration {
     allow_credentials = false
-    allow_headers     = []
-    allow_methods     = [
+    allow_headers     = [
+      "*",
+    ]
+    allow_methods = [
       "GET",
       "HEAD",
       "OPTIONS",

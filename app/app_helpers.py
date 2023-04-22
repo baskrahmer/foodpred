@@ -1,8 +1,8 @@
 import logging
 import re
 
-import os
-import torch
+import onnxruntime as ort
+from transformers import PreTrainedTokenizerFast
 
 
 def preprocess(query: str) -> str:
@@ -29,9 +29,11 @@ def preprocess(query: str) -> str:
     return query.lower()
 
 
-def get_model_function(path):
+def get_model_function(config):
+    onnx_model_path = config["model_path"]
+    tokenizer_path = config["tokenizer_path"]
     logging.info("trying to load model...")
-    model = torch.load(os.path.join(path, "model.pt"))
-    tokenizer = torch.load(os.path.join(path, "tokenizer.pt"))
+    model = ort.InferenceSession(onnx_model_path)
+    tokenizer = PreTrainedTokenizerFast.from_pretrained(tokenizer_path)
     logging.info("model loaded")
     return model, tokenizer

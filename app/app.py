@@ -2,7 +2,6 @@ import json
 import logging
 
 import numpy as np
-import torch
 import yaml
 
 from app_helpers import preprocess, get_model_function
@@ -15,15 +14,21 @@ else:
 config = yaml.safe_load(open("config.yaml"))
 data = np.load(config["raw_names"])
 lci_data = yaml.safe_load(open(config["data_file"]))
-model, tokenizer = get_model_function(config["model_path"])
+model, tokenizer = get_model_function(config)
 
 
 def lambda_handler(event, context):
     query = event["queryStringParameters"].get("query")
 
-    with torch.no_grad():
-        tokens = tokenizer(preprocess(query), return_tensors="pt").data
-        probs = np.array(model(**tokens).flatten())
+    tokens = tokenizer(query, return_tensors="pt")
+    input_ids = tokens["input_ids"].numpy()
+
+    # Run the ONNX model
+    ort_inputs = {model.get_inputs()[0].name: input_ids}
+    ort_outputs = model.run(None, ort_inputs)
+
+    # Process the output as needed
+    probs = ort_outputs[0].flatten()
 
     pred = data[int(np.argmax(probs))]
     prob = float(np.max(probs))
@@ -36,4 +41,9 @@ def lambda_handler(event, context):
             'ef_score': ef_score,
             'prob': prob,
         }),
+        'headers': {
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+        },
     }
