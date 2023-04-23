@@ -8,7 +8,7 @@ RUN python3.9 -m pip install torch==2.0.0 -f https://download.pytorch.org/whl/cp
 COPY requirements.txt ./
 RUN python3.9 -m pip install -r requirements.txt -t .
 
-COPY tokenizer ./model_tokenizer
+COPY model_tokenizer ./model_tokenizer
 COPY model.onnx .
 
 COPY raw.npy lci_data.yaml ./

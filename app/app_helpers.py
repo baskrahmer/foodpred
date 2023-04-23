@@ -32,8 +32,9 @@ def preprocess(query: str) -> str:
 def get_model_function(config):
     onnx_model_path = config["model_path"]
     tokenizer_path = config["tokenizer_path"]
-    logging.info("trying to load model...")
+    logging.info("loading model")
     model = ort.InferenceSession(onnx_model_path)
+    logging.info("loading tokenizer")
     tokenizer = PreTrainedTokenizerFast.from_pretrained(tokenizer_path)
-    logging.info("model loaded")
+    logging.info("loading finished")
     return model, tokenizer

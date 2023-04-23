@@ -7,6 +7,7 @@ import torch
 import yaml
 from datasets import Dataset, load_from_disk
 from googletrans import Translator
+from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
@@ -260,12 +261,12 @@ def get_product_loaders(cfg, tokenize_fn):
     df['tokens'] = df['name'].apply(tokenize_fn)
 
     if cfg.n_folds <= 1:
-        dataset = ProductDataset(df)
-        loader = DataLoader(dataset, batch_size=32, shuffle=False)
-
+        train_df, val_df = train_test_split(df, test_size=0.8)
+        train_loader = df_to_loader(train_df)
+        val_loader = df_to_loader(val_df)
         # torch.save([loader], f=train_cache)
 
-        return [loader], []
+        return [train_loader], [val_loader]
 
     else:
         from sklearn.model_selection import StratifiedKFold
@@ -276,3 +277,9 @@ def get_product_loaders(cfg, tokenize_fn):
             test_set = df.iloc[test_index]
 
         return [loader], []
+
+
+def df_to_loader(df):
+    dataset = ProductDataset(df)
+    loader = DataLoader(dataset, batch_size=32, shuffle=False)
+    return loader
