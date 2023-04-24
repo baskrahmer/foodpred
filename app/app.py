@@ -20,17 +20,21 @@ model, tokenizer = get_model_function(config)
 def lambda_handler(event, context):
     query = event["queryStringParameters"].get("query")
 
+    logging.info("tokenizing")
     tokens = tokenizer(query, return_tensors="pt")
     input_ids = tokens["input_ids"].numpy()
 
     # Run the ONNX model
+    logging.info("running ONNX model")
     ort_inputs = {model.get_inputs()[0].name: input_ids}
     ort_outputs = model.run(None, ort_inputs)
 
     # Process the output as needed
     probs = ort_outputs[0].flatten()
 
-    pred = data[int(np.argmax(probs))]
+    argmax_idx = int(np.argmax(probs))
+    logging.info(f"argmax_idx: {argmax_idx}")
+    pred = data[argmax_idx]
     prob = float(np.max(probs))
     ef_score = lci_data[preprocess(pred)]['synthese']
 

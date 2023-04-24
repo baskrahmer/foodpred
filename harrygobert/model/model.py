@@ -28,7 +28,7 @@ class OFFClassificationModel(LightningModule):
 
         base_params = {
             "params": self.base_model.parameters(),
-            "lr": self.lr
+            "lr": self.lr * 0.1
         }
         readout_params = {
             "params": self.readout.parameters(),
@@ -59,6 +59,16 @@ class OFFClassificationModel(LightningModule):
             batch = batch[0]
 
         outputs, loss = self.forward(**batch)
+        self.log("train_loss", loss, on_step=True)
+        return {"loss": loss}
+
+    def validation_step(self, batch, batch_nb):
+
+        if isinstance(batch, list):
+            batch = batch[0]
+
+        outputs, loss = self.forward(**batch)
+        self.log("val_loss", loss, on_epoch=True)
         return {"loss": loss}
 
     def configure_optimizers(self):

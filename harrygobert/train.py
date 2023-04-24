@@ -1,18 +1,14 @@
-import argparse
-import os
-
 import onnxruntime as ort
 import torch
-import wandb.errors
 from lightning import Trainer
 from lightning import seed_everything
 from optimum.intel import INCQuantizer
-from pytorch_lightning.loggers import WandbLogger
 from transformers import AutoTokenizer
 from transformers import PreTrainedTokenizerFast
 
 from harrygobert.data import get_product_loaders
 from harrygobert.model.model import OFFClassificationModel
+from harrygobert.util import get_callbacks, get_wandb_logger, parse_args
 
 
 def main(cfg):
@@ -40,7 +36,10 @@ def main(cfg):
     trainer = Trainer(
         accelerator="auto",
         max_steps=cfg.num_steps,
-        logger=wandb_logger if cfg.use_wandb else None
+        val_check_interval=cfg.eval_steps,
+        check_val_every_n_epoch=None,
+        logger=wandb_logger if cfg.use_wandb else None,
+        callbacks=get_callbacks(cfg),
     )
 
     trainer.fit(
@@ -129,63 +128,6 @@ def main(cfg):
     # todo assertions for output shape; sum of probabilities
 
 
-def get_wandb_logger(cfg):
-    try:
-        wandb_logger = WandbLogger(project="harrygobert")
-    except wandb.errors.UsageError:
-        from getpass import getpass
-        wandb.login(key=getpass("wandb API token:"))
-        wandb_logger = WandbLogger(project="harrygobert")
-    return wandb_logger
-
-
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-
-    root_path = os.path.abspath(os.path.join(__file__, "../.."))
-
-    # Training settings
-    parser.add_argument('--debug', default=True, type=bool, help='Debug mode')
-    parser.add_argument('--model_name', default="distilbert-base-multilingual-cased", type=str,
-                        help='Name of the pre-trained model')
-    parser.add_argument('--n_accumulation_steps', default=1, type=int, help='Number of steps to accumulate gradients')
-    parser.add_argument('--batch_size', default=64, type=int, help='Batch size for training')
-    parser.add_argument('--warmup_ratio', default=0.1, type=float, help='Ratio of steps for warmup phase')
-    parser.add_argument('--max_len', default=32, type=int, help='Maximum sequence length')
-    parser.add_argument('--num_steps', default=1000, type=int, help='Number of steps to train for')
-    parser.add_argument('--learning_rate', default=1e-4, type=float, help='Learning rate for optimizer')
-    parser.add_argument('--llrd', default=0.7, type=float, help='Layer-wise learning rate decay')
-    parser.add_argument('--weight_decay', default=1e-8, type=float, help='Weight decay')
-    parser.add_argument('--eval_steps', default=50, type=int, help='After how many steps to do evaluation')
-    parser.add_argument('--grid_search', default=False, type=bool, help='Whether to run grid search')
-    parser.add_argument('--n_folds', default=1, type=int,
-                        help='Number of cross-validation folds. 0 trains on full data.')
-
-    # Artefact settings
-    parser.add_argument('--save_dir', default=os.path.join(root_path, 'model'), type=str,
-                        help='Path to save trained model to')
-    parser.add_argument('--quantize', default=False, type=bool, help='Whether or not to quantize the output model')
-
-    # Data settings
-    parser.add_argument('--translate', default=True, type=bool, help='Whether to translate text')
-    parser.add_argument('--use_cached', default=False, type=bool, help='Whether to use cached data')
-    parser.add_argument('--use_subcats', default=False, type=bool, help='Whether to use sub-categories')
-    parser.add_argument('--n_classes', default=2473, type=int, help='Number of classes')
-    parser.add_argument('--agribalyse_path',
-                        default=os.path.join(root_path, 'data/product_to_ciqual.yaml'), type=str,
-                        help='Path to Agribalyse data')
-    parser.add_argument('--ciqual_dict', default=os.path.join(root_path, 'data/ciqual_dict.yaml'),
-                        type=str,
-                        help='Path to CIQUAL data')
-    parser.add_argument('--csv_path', default=os.path.join(root_path, 'data/products.csv'), type=str,
-                        help='Path to CSV products data')
-    parser.add_argument('--cache_path', default=os.path.join(root_path, 'data/cache'), type=str,
-                        help='Path to CSV products data')
-
-    # Logging settings
-    parser.add_argument('--run_name', default="HGV-debug", type=str, help='Name of the run')
-    parser.add_argument('--use_wandb', default=True, type=bool, help='Whether to use wandb')
-
-    args = parser.parse_args()
-
+    args = parse_args()
     main(args)

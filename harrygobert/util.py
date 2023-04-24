@@ -1,3 +1,10 @@
+import argparse
+import os
+
+import lightning.pytorch as pl
+import wandb.errors
+from pytorch_lightning.loggers import WandbLogger
+
 CIQUAL_KEYS = [1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1012, 1013, 1014, 1015, 1017, 1018, 1019, 1021,
                1022, 1023, 1026, 2002, 2008, 2011, 2013, 2035, 2060, 2061, 2069, 2074, 2500, 3000, 3002, 4000, 4002,
                4003, 4004, 4008, 4013, 4014, 4015, 4016, 4017, 4018, 4019, 4020, 4021, 4022, 4023, 4026, 4027, 4028,
@@ -162,3 +169,82 @@ CIQUAL_KEYS = [1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1012, 1013,
                76090, 76091, 76092, 76093, 76094, 76095, 76096, 76097, 76100, 76101, 76102, 96778]
 IDX_TO_CIQUAL = {idx: k for idx, k in enumerate(CIQUAL_KEYS)}
 CIQUAL_TO_IDX = {k: idx for idx, k in enumerate(CIQUAL_KEYS)}
+
+
+def get_callbacks(cfg):
+    return [
+        pl.callbacks.ModelCheckpoint(
+            monitor="val_loss",
+            save_on_train_epoch_end=False,
+            dirpath=cfg.save_dir,
+            every_n_epochs=1
+        ),
+        pl.callbacks.EarlyStopping(
+            monitor="val_loss",
+            min_delta=cfg.es_delta,
+            patience=cfg.es_patience,
+            verbose=True,
+            mode="min",
+            check_on_train_epoch_end=False,
+        ),
+        pl.callbacks.LearningRateMonitor(logging_interval="step")
+    ]
+
+
+def get_wandb_logger(cfg):
+    try:
+        wandb_logger = WandbLogger(project="harrygobert")
+    except wandb.errors.UsageError:
+        from getpass import getpass
+        wandb.login(key=getpass("wandb API token:"))
+        wandb_logger = WandbLogger(project="harrygobert")
+    return wandb_logger
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    root_path = os.path.abspath(os.path.join(__file__, "../.."))
+
+    # Training settings
+    parser.add_argument('--debug', default=True, type=bool, help='Debug mode')
+    parser.add_argument('--model_name', default="distilbert-base-multilingual-cased", type=str,
+                        help='Name of the pre-trained model')
+    parser.add_argument('--n_accumulation_steps', default=1, type=int, help='Number of steps to accumulate gradients')
+    parser.add_argument('--batch_size', default=64, type=int, help='Batch size for training')
+    parser.add_argument('--warmup_ratio', default=0.1, type=float, help='Ratio of steps for warmup phase')
+    parser.add_argument('--max_len', default=32, type=int, help='Maximum sequence length')
+    parser.add_argument('--num_steps', default=1000, type=int, help='Number of steps to train for')
+    parser.add_argument('--learning_rate', default=1e-4, type=float, help='Learning rate for optimizer')
+    parser.add_argument('--llrd', default=0.7, type=float, help='Layer-wise learning rate decay')
+    parser.add_argument('--weight_decay', default=1e-8, type=float, help='Weight decay')
+    parser.add_argument('--eval_steps', default=50, type=int, help='After how many steps to do evaluation')
+    parser.add_argument('--grid_search', default=False, type=bool, help='Whether to run grid search')
+    parser.add_argument('--n_folds', default=1, type=int,
+                        help='Number of cross-validation folds. 0 trains on full data.')
+
+    # Artefact settings
+    parser.add_argument('--save_dir', default=os.path.join(root_path, 'model'), type=str,
+                        help='Path to save trained model to')
+    parser.add_argument('--quantize', default=False, type=bool, help='Whether or not to quantize the output model')
+    parser.add_argument('--es_delta', default=0.01, type=float, help='Early stopping delta')
+    parser.add_argument('--es_patience', default=5, type=int, help='Early stopping patience')
+    # Data settings
+    parser.add_argument('--translate', default=True, type=bool, help='Whether to translate text')
+    parser.add_argument('--use_cached', default=False, type=bool, help='Whether to use cached data')
+    parser.add_argument('--use_subcats', default=False, type=bool, help='Whether to use sub-categories')
+    parser.add_argument('--n_classes', default=2473, type=int, help='Number of classes')
+    parser.add_argument('--agribalyse_path',
+                        default=os.path.join(root_path, 'data/product_to_ciqual.yaml'), type=str,
+                        help='Path to Agribalyse data')
+    parser.add_argument('--ciqual_dict', default=os.path.join(root_path, 'data/ciqual_dict.yaml'),
+                        type=str,
+                        help='Path to CIQUAL data')
+    parser.add_argument('--csv_path', default=os.path.join(root_path, 'data/products.csv'), type=str,
+                        help='Path to CSV products data')
+    parser.add_argument('--cache_path', default=os.path.join(root_path, 'data/cache'), type=str,
+                        help='Path to CSV products data')
+
+    # Logging settings
+    parser.add_argument('--run_name', default="HGV-debug", type=str, help='Name of the run')
+    parser.add_argument('--use_wandb', default=True, type=bool, help='Whether to use wandb')
+    return parser.parse_args()
