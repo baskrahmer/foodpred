@@ -30,6 +30,13 @@ jobs:
           state_bucket: tfstate-harrygobert-dev
           cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
+      - name: Deploy frontend to dev
+        uses: ./.github/actions/build-frontend
+        with:
+          env: dev
+          role_arn: ${{ secrets.DEV_DEPLOY_ROLE }}
+          bucket_name: 81181825.xyz
+
   deploy-prod:
     runs-on: ubuntu-latest
 
@@ -58,3 +65,10 @@ jobs:
           role_arn: ${{ secrets.PROD_DEPLOY_ROLE }}
           state_bucket: tfstate-harrygobert-prod
           cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Deploy frontend to prod
+        uses: ./.github/actions/build-frontend
+        with:
+          env: prod
+          role_arn: ${{ secrets.PROD_DEPLOY_ROLE }}
+          bucket_name: foodpred.com

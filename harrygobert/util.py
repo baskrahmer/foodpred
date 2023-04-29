@@ -214,7 +214,7 @@ def parse_args():
     parser.add_argument('--warmup_ratio', default=0.1, type=float, help='Ratio of steps for warmup phase')
     parser.add_argument('--max_len', default=32, type=int, help='Maximum sequence length')
     parser.add_argument('--num_steps', default=1000, type=int, help='Number of steps to train for')
-    parser.add_argument('--learning_rate', default=1e-4, type=float, help='Learning rate for optimizer')
+    parser.add_argument('--learning_rate', default=1e-2, type=float, help='Learning rate for optimizer')
     parser.add_argument('--llrd', default=0.7, type=float, help='Layer-wise learning rate decay')
     parser.add_argument('--weight_decay', default=1e-8, type=float, help='Weight decay')
     parser.add_argument('--eval_steps', default=50, type=int, help='After how many steps to do evaluation')

@@ -114,18 +114,26 @@ def main(cfg):
     ort_session = ort.InferenceSession(onnx_model_path)
     tokenizer = PreTrainedTokenizerFast.from_pretrained(tokenizer_json_path)
 
-    input_text = "Your input text goes here"
+    input_text = "Grah"
 
+    def inference_fn(input_str):
+        import numpy as np
+        output = inference(input_str, ort_session, tokenizer)
+        return np.argmax(output)
+
+    inference_fn("Grah")
+    # todo assertions for output shape; sum of probabilities
+
+
+def inference(input_text, ort_session, tokenizer):
     tokens = tokenizer(input_text, return_tensors="pt")
     input_ids = tokens["input_ids"].numpy()
-
     # Run the ONNX model
     ort_inputs = {ort_session.get_inputs()[0].name: input_ids}
     ort_outputs = ort_session.run(None, ort_inputs)
-
     # Process the output as needed
     output = ort_outputs[0].flatten()
-    # todo assertions for output shape; sum of probabilities
+    return output
 
 
 if __name__ == '__main__':

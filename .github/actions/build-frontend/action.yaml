@@ -1,0 +1,44 @@
+name: Deploy Environment
+description: "Builds the React frontend and syncs to S3"
+
+inputs:
+  env:
+    description: 'The deployment environment (dev/prod)'
+    required: true
+  role_arn:
+    description: 'ARN of the IAM role to assume'
+    required: true
+  bucket_name:
+    description: 'Name of the S3 website bucket'
+    required: true
+
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Use Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '19.3.0'
+    - name: Install dependencies
+      run: npm install
+      working-directory: ./frontend
+      shell: bash
+
+    - name: Build React
+      run: npm run build:${{ inputs.env }}
+      working-directory: ./frontend
+      shell: bash
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        role-to-assume: ${{ inputs.role_arn }}
+        role-session-name: OIDCSession
+        aws-region: eu-central-1
+
+#    - name: Sync to S3
+#      shell: bash
+#      run: aws s3 sync /frontend/build s3://${{ inputs.bucket_name }}/
