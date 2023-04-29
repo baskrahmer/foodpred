@@ -40,7 +40,6 @@ function App() {
             <main>
               <div className="container">
                 <h1>EcoScore Calculator</h1>
-                <h1>{process.env.REACT_APP_API_URL}</h1>
                 <div className="input-container">
                   <input
                     type="text"
