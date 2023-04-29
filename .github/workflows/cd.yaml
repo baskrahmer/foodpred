@@ -35,7 +35,7 @@ jobs:
         with:
           env: dev
           role_arn: ${{ secrets.DEV_DEPLOY_ROLE }}
-          bucket_name: 81181825.xyz
+          bucket_name: harrygobert-dev
 
   deploy-prod:
     runs-on: ubuntu-latest
@@ -71,4 +71,4 @@ jobs:
         with:
           env: prod
           role_arn: ${{ secrets.PROD_DEPLOY_ROLE }}
-          bucket_name: foodpred.com
+          bucket_name: harrygobert-prod
