@@ -218,8 +218,8 @@ def translate_data(val):
 class ProductDataset(Dataset):
     def __init__(self, data):
         super(ProductDataset).__init__()
-        self.inputs = data["tokens"].tolist()
-        self.label = data["label"].tolist()
+        self.inputs = data["tokens"]
+        self.label = data["label"]
 
     def __len__(self):
         return len(self.inputs)
@@ -241,6 +241,27 @@ class ProductLoader(DataLoader):
         return self.datas
 
 
+def get_dataloaders(cfg, tokenizer_fn):
+    train_products, val_products = get_product_loaders(cfg, tokenizer_fn)
+    id_products = get_identity_loader(cfg, tokenizer_fn)
+    return train_products, val_products + [id_products]
+
+
+def get_identity_loader(cfg, tokenizer_fn):
+    ciqual_dict = yaml.safe_load(open(cfg.ciqual_to_name_path))
+    label_dict = {CIQUAL_TO_IDX[k]: v for k, v in ciqual_dict.items()}
+
+    tokens, labels = [], []
+    for ciqual, name in ciqual_dict.items():
+        tokens.append(tokenizer_fn(name))
+        labels.append(CIQUAL_TO_IDX[ciqual])
+
+    data = {"tokens": tokens, "label": labels}
+    dataset = ProductDataset(data)
+
+    return DataLoader(dataset, batch_size=32, shuffle=False)
+
+
 def get_product_loaders(cfg, tokenize_fn):
     train_cache = os.path.join(cfg.cache_path, "train.pt")
     val_cache = os.path.join(cfg.cache_path, "val.pt")
@@ -258,12 +279,13 @@ def get_product_loaders(cfg, tokenize_fn):
     df = df[df['name'].notnull()]
     df['label'] = df['ciqual'].apply(lambda x: CIQUAL_TO_IDX.get(x))
     df = df[df['label'].notnull()]
+    df = df[df['name'].notnull()]
     df['tokens'] = df['name'].apply(tokenize_fn)
 
     if cfg.n_folds <= 1:
         train_df, val_df = train_test_split(df, test_size=0.8)
-        train_loader = df_to_loader(train_df)
-        val_loader = df_to_loader(val_df)
+        train_loader = df_to_loader(train_df, shuffle=True)
+        val_loader = df_to_loader(val_df, shuffle=False)
         # torch.save([loader], f=train_cache)
 
         return [train_loader], [val_loader]
@@ -279,7 +301,8 @@ def get_product_loaders(cfg, tokenize_fn):
         return [loader], []
 
 
-def df_to_loader(df):
-    dataset = ProductDataset(df)
-    loader = DataLoader(dataset, batch_size=32, shuffle=False)
+def df_to_loader(df, shuffle):
+    data = {"tokens": df["tokens"].tolist(), "label": df["label"].tolist()}
+    dataset = ProductDataset(data)
+    loader = DataLoader(dataset, batch_size=32, shuffle=shuffle)
     return loader
