@@ -9,10 +9,15 @@ function App() {
   const [efScore, setEfScore] = useState("-");
   const [probability, setProbability] = useState("-");
 
-  const calculateEcoScore = async () => {
-    if (foodInput.trim() === "") return;
+  const calculateEcoScore = async (input) => {
+    if (input.trim() === "") {
+      setPrediction("-");
+      setEfScore("-");
+      setProbability("-");
+      return;
+    }
 
-    const response = await fetch(`https://${process.env.REACT_APP_API_URL}/?query=${encodeURIComponent(foodInput)}`, {
+    const response = await fetch(`https://${process.env.REACT_APP_API_URL}/?query=${encodeURIComponent(input)}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -25,8 +30,9 @@ function App() {
   };
 
   const handleFoodInputChange = (e) => {
-    setFoodInput(e.target.value);
-    calculateEcoScore();
+    const input = e.target.value;
+    setFoodInput(input);
+    calculateEcoScore(input);
   };
 
   return (
