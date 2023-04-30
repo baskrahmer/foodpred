@@ -1,4 +1,5 @@
 import torch
+import torchmetrics
 from lightning import LightningModule
 from torch import nn as nn
 from transformers import AutoModel, get_linear_schedule_with_warmup
@@ -11,9 +12,15 @@ class OFFClassificationModel(LightningModule):
         self.lr = cfg.learning_rate
         self.num_steps = cfg.num_steps
         self.base_model = AutoModel.from_pretrained(cfg.model_name)
-        self.dropout = nn.Dropout(0.2)
+        self.dropout = nn.Dropout(cfg.dropout)
         self.readout = nn.Linear(self.base_model.config.hidden_size, cfg.n_classes)
         self.loss = nn.CrossEntropyLoss()
+        self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=cfg.n_classes)
+        self.valid_acc = [torchmetrics.Accuracy(task="multiclass", num_classes=cfg.n_classes) for _ in range(2)]
+        if torch.cuda.is_available():
+            self.train_acc.to("cuda")
+            for acc in self.valid_acc:
+                acc.to("cuda")
 
     @staticmethod
     def mean_pooling(last_hidden_state, attention_mask):
@@ -59,16 +66,24 @@ class OFFClassificationModel(LightningModule):
             batch = batch[0]
 
         outputs, loss = self.forward(**batch)
+        self.train_acc(outputs, batch['labels'])
+
         self.log("train_loss", loss, on_step=True)
+        self.log('train_acc', self.train_acc, on_step=True, on_epoch=False)
+
         return {"loss": loss}
 
-    def validation_step(self, batch, batch_nb):
+    def validation_step(self, batch, batch_nb, dataloader_idx):
 
         if isinstance(batch, list):
             batch = batch[0]
 
         outputs, loss = self.forward(**batch)
+        acc = self.valid_acc[dataloader_idx](outputs, batch['labels'])
+
         self.log("val_loss", loss, on_epoch=True)
+        self.log('valid_acc', acc, on_step=True, on_epoch=True)
+
         return {"loss": loss}
 
     def configure_optimizers(self):

@@ -6,13 +6,15 @@ from optimum.intel import INCQuantizer
 from transformers import AutoTokenizer
 from transformers import PreTrainedTokenizerFast
 
-from harrygobert.data import get_product_loaders
+from harrygobert.data import get_dataloaders
 from harrygobert.model.model import OFFClassificationModel
 from harrygobert.util import get_callbacks, get_wandb_logger, parse_args
 
 
 def main(cfg):
     seed_everything(1997)
+    if torch.cuda.is_available():
+        torch.cuda.set_device(0)
 
     if cfg.use_wandb:
         wandb_logger = get_wandb_logger(cfg)
@@ -27,7 +29,7 @@ def main(cfg):
         padding="max_length"
     )
 
-    train, val = get_product_loaders(cfg, tokenize_fn)
+    train, val = get_dataloaders(cfg, tokenize_fn)
 
     # val, train = make_agribalyse_data_loaders(config=cfg)
     # train = train.map(tokenize_fn, batched=True)
