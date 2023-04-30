@@ -23,7 +23,7 @@ resource "aws_iam_role" "lambda_role" {
 
 resource "aws_lambda_function" "lambda_test_function" {
   function_name = "foodpred"
-  image_uri     = "594760667920.dkr.ecr.eu-central-1.amazonaws.com/foodpred:v0"
+  image_uri     = "594760667920.dkr.ecr.eu-central-1.amazonaws.com/foodpred:latest"
   package_type  = "Image"
   role          = aws_iam_role.lambda_role.arn
   timeout       = 30
