@@ -15,6 +15,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      #      - name: Update Docker image
+      #        uses: ./.github/actions/push-docker
+      #        with:
+      #          env: dev
+      #          role_arn: ${{ secrets.DEV_DEPLOY_ROLE }}
+      #          ecr_repository: 81181825
+
       - name: Deploy to dev
         uses: ./.github/actions/deploy
         with:
@@ -22,6 +29,13 @@ jobs:
           role_arn: ${{ secrets.DEV_DEPLOY_ROLE }}
           state_bucket: tfstate-harrygobert-dev
           cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Deploy frontend to dev
+        uses: ./.github/actions/build-frontend
+        with:
+          env: dev
+          role_arn: ${{ secrets.DEV_DEPLOY_ROLE }}
+          bucket_name: harrygobert-dev
 
   deploy-prod:
     runs-on: ubuntu-latest
@@ -37,6 +51,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      #      - name: Update Docker image
+      #        uses: ./.github/actions/push-docker
+      #        with:
+      #          env: prod
+      #          role_arn: ${{ secrets.PROD_DEPLOY_ROLE }}
+      #          ecr_repository: foodpred
+
       - name: Deploy to prod
         uses: ./.github/actions/deploy
         with:
@@ -44,3 +65,10 @@ jobs:
           role_arn: ${{ secrets.PROD_DEPLOY_ROLE }}
           state_bucket: tfstate-harrygobert-prod
           cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Deploy frontend to prod
+        uses: ./.github/actions/build-frontend
+        with:
+          env: prod
+          role_arn: ${{ secrets.PROD_DEPLOY_ROLE }}
+          bucket_name: harrygobert-prod

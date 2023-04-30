@@ -1,121 +1,143 @@
-import numpy as np
+import onnxruntime as ort
+import torch
+from lightning import Trainer
+from lightning import seed_everything
+from optimum.intel import INCQuantizer
 from transformers import AutoTokenizer
-from transformers import TrainingArguments
+from transformers import PreTrainedTokenizerFast
 
-from data import make_agribalyse_data_loaders
-from model.model import OFFClassificationModel
-from train_tools import compute_metrics, CustomCallback, CustomTrainer
-
-
-class CFG:
-    debug = False
-
-    # Training settings
-    model_name = "xlm-roberta-base"
-    n_accumulation_steps = 1
-    batch_size = 64
-    warmup_ratio = 0.1
-    max_len = 16
-    num_epochs = 20
-    learning_rate = 1e-2
-
-    # Data settings
-    translate = True
-    use_cached = True
-    use_subcats = False
-    n_classes = 2473
-    agribalyse_path = '../data/product_to_ciqual.yaml'
-    ciqual_dict = '../data/ciqual_dict.yaml'
-
-    # Logging settings
-    run_name = "HGV-debug"
+from harrygobert.data import get_dataloaders
+from harrygobert.model.model import OFFClassificationModel
+from harrygobert.util import get_callbacks, get_wandb_logger, parse_args
 
 
-def main():
-    try:
-        import wandb
-        wandb.login()
-        use_wandb = True
-    except Exception:
-        print("Weights & Biases not configured properly")
-        use_wandb = False
+def main(cfg):
+    seed_everything(1997)
+    if torch.cuda.is_available():
+        torch.cuda.set_device(0)
 
-    val, train = make_agribalyse_data_loaders(
-        agribalyse_path=CFG.agribalyse_path,
-        ciqual_path=CFG.ciqual_dict,
-        config=CFG
+    if cfg.use_wandb:
+        wandb_logger = get_wandb_logger(cfg)
+
+    model = OFFClassificationModel(cfg)
+    tokenizer = AutoTokenizer.from_pretrained(cfg.model_name)
+    tokenize_fn = lambda x: tokenizer(
+        x,
+        truncation=True,
+        max_length=cfg.max_len,
+        return_tensors='pt',
+        padding="max_length"
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(CFG.model_name)
+    train, val = get_dataloaders(cfg, tokenize_fn)
 
-    def get_model():
+    # val, train = make_agribalyse_data_loaders(config=cfg)
+    # train = train.map(tokenize_fn, batched=True)
+    # val = val.map(tokenize_fn, batched=True)
 
-        model = OFFClassificationModel(
-            model_name=CFG.model_name,
-            n_classes=CFG.n_classes
-        )
-
-        for p in model.base_model.parameters():
-            p.requires_grad = False
-
-        return model
-
-    tokenize_fn = lambda x: tokenizer(x['text'], truncation=True, max_length=CFG.max_len)
-    train = train.map(tokenize_fn, batched=True)
-    val = val.map(tokenize_fn, batched=True)
-
-    train_class_weights = np.zeros(CFG.n_classes)
-    for t in train:
-        train_class_weights += np.array(t['label']) / CFG.n_classes
-
-    val_class_weights = np.zeros(CFG.n_classes)
-    for v in val:
-        val_class_weights += np.array(v['label']) / CFG.n_classes
-
-    training_args = TrainingArguments(
-        output_dir="test_trainer",
-        do_eval=True,
-        report_to="wandb" if use_wandb else "all",
-        evaluation_strategy="steps",
-        logging_strategy="steps",
-        per_device_train_batch_size=CFG.batch_size,
-        per_device_eval_batch_size=CFG.batch_size,
-        gradient_accumulation_steps=CFG.n_accumulation_steps,
-        learning_rate=CFG.learning_rate,
-        logging_steps=1,
-        log_on_each_node=False,
-        num_train_epochs=CFG.num_epochs,
-        overwrite_output_dir=True,
-        run_name=CFG.run_name,
-        warmup_ratio=CFG.warmup_ratio,
-        eval_steps=100,
-        fp16=False,
-        # weight_decay=0.01
+    trainer = Trainer(
+        accelerator="auto",
+        max_steps=cfg.num_steps,
+        val_check_interval=cfg.eval_steps,
+        check_val_every_n_epoch=None,
+        logger=wandb_logger if cfg.use_wandb else None,
+        callbacks=get_callbacks(cfg),
     )
 
-    trainer = CustomTrainer(
-        model_init=get_model,
-        args=training_args,
-        train_dataset=train,
-        eval_dataset=val,
-        compute_metrics=compute_metrics,
-        tokenizer=tokenizer
+    trainer.fit(
+        model=model,
+        train_dataloaders=train,
+        val_dataloaders=val,
     )
 
-    trainer.add_callback(CustomCallback(trainer))
-    trainer.train()
-
-    trainer.hyperparameter_search(
-        direction="maximize",
-        backend="ray",
-        n_trials=1
-    )
+    if cfg.grid_search:
+        raise NotImplementedError
 
     # TODO: set up (cross-)validation procedure
     # TODO: Output mapping in correct format
 
-    return
+    if cfg.quantize:
+        from neural_compressor.config import PostTrainingQuantConfig, TuningCriterion, AccuracyCriterion
+
+        model = trainer.model
+        model.config = model.base_model.config
+
+        accuracy_criterion = AccuracyCriterion(tolerable_loss=0.01)
+        tuning_criterion = TuningCriterion(max_trials=600)
+        conf = PostTrainingQuantConfig(
+            approach="static", backend="default", tuning_criterion=tuning_criterion,
+            accuracy_criterion=accuracy_criterion
+        )
+
+        from neural_compressor.quantization import fit
+
+        q_model = fit(model=model, conf=conf, calib_dataloader=val, eval_func=eval_func)
+
+        model = trainer.model
+        model.config = model.base_model.config
+
+        # Load the quantization configuration detailing the quantization we wish to apply
+        quantization_config = PostTrainingQuantConfig(approach="static")
+
+        # Generate the calibration dataset needed for the calibration step
+        quantizer = INCQuantizer.from_pretrained(model)
+        # Apply static quantization and save the resulting model
+        quantizer.quantize(
+            quantization_config=quantization_config,
+            calibration_dataset=train,
+            save_directory=cfg.save_dir,
+        )
+
+    model.eval()
+
+    tokenizer_json_path = "./tokenizer"
+    onnx_model_path = "./model.onnx"
+
+    tokenizer.save_pretrained(tokenizer_json_path)
+
+    # You may need to adjust the input size based on your specific model architecture
+    input_size = (1, cfg.max_len)  # Example: (batch_size, sequence_length)
+
+    dummy_input = torch.ones(input_size, dtype=torch.long, device="cpu")
+    dynamic_axes = {
+        "input": {0: "batch_size", 1: "sequence_length"},
+        "output": {0: "batch_size", 1: "sequence_length"},
+    }
+    torch.onnx.export(
+        model,
+        dummy_input,
+        onnx_model_path,
+        opset_version=12,
+        input_names=["input"],
+        output_names=["output"],
+        dynamic_axes=dynamic_axes,
+    )
+
+    ort_session = ort.InferenceSession(onnx_model_path)
+    tokenizer = PreTrainedTokenizerFast.from_pretrained(tokenizer_json_path)
+
+    input_text = "Grah"
+
+    def inference_fn(input_str):
+        import numpy as np
+        output = inference(input_str, ort_session, tokenizer)
+        return np.argmax(output)
+
+    inference_fn("Grah")
+    # todo assertions for output shape; sum of probabilities
+
+
+def inference(input_text, ort_session, tokenizer):
+    tokens = tokenizer(input_text, return_tensors="pt")
+    input_ids = tokens["input_ids"].numpy()
+    # Run the ONNX model
+    ort_inputs = {ort_session.get_inputs()[0].name: input_ids}
+    ort_outputs = ort_session.run(None, ort_inputs)
+    # Process the output as needed
+    output = ort_outputs[0].flatten()
+    return output
 
 
 if __name__ == '__main__':
-    main()
+    args = parse_args()
+    main(args)

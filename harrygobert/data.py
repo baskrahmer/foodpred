@@ -2,12 +2,16 @@ import os
 import time
 from typing import List
 
+import pandas as pd
 import torch
 import yaml
-# from torch.utils.data import Dataset, DataLoader
 from datasets import Dataset, load_from_disk
 from googletrans import Translator
+from sklearn.model_selection import train_test_split
+from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
+
+from util import CIQUAL_TO_IDX
 
 SEPARATOR = ' & '
 
@@ -101,9 +105,12 @@ class MappingDataset(Dataset):
         return self.x[idx], idx
 
 
-def make_agribalyse_data_loaders(agribalyse_path, ciqual_path, config, languages={'nl', 'en'}, data_path='data/cache'):
-    products_path = os.path.join('train_ds')
-    identity_path = os.path.join('val_ds')
+def make_agribalyse_data_loaders(config, languages={'nl', 'en'}):
+    agribalyse_path = config.agribalyse_path
+    ciqual_path = config.ciqual_path
+
+    products_path = os.path.join(config.cache_path, 'train_ds')
+    identity_path = os.path.join(config.cache_path, 'val_ds')
 
     if config.use_cached and os.path.exists(products_path) and os.path.exists(identity_path):
         print("Loading cached data")
@@ -206,3 +213,96 @@ def sample_data(train, val):
 def translate_data(val):
     translator = DutchToEnglishTranslator()
     return val.map(lambda x: {'text': translator(x['text'])})
+
+
+class ProductDataset(Dataset):
+    def __init__(self, data):
+        super(ProductDataset).__init__()
+        self.inputs = data["tokens"]
+        self.label = data["label"]
+
+    def __len__(self):
+        return len(self.inputs)
+
+    def __getitem__(self, item):
+        return {
+            "input_ids": self.inputs[item]['input_ids'][0],
+            "attention_mask": self.inputs[item]['attention_mask'][0],
+            "labels": self.label[item],
+        }
+
+
+class ProductLoader(DataLoader):
+    def __init__(self, dataset):
+        super(ProductLoader).__init__()
+        self.dataset = dataset
+
+    def __iter__(self):
+        return self.datas
+
+
+def get_dataloaders(cfg, tokenizer_fn):
+    train_products, val_products = get_product_loaders(cfg, tokenizer_fn)
+    id_products = get_identity_loader(cfg, tokenizer_fn)
+    return train_products, val_products + [id_products]
+
+
+def get_identity_loader(cfg, tokenizer_fn):
+    ciqual_dict = yaml.safe_load(open(cfg.ciqual_to_name_path))
+    label_dict = {CIQUAL_TO_IDX[k]: v for k, v in ciqual_dict.items()}
+
+    tokens, labels = [], []
+    for ciqual, name in ciqual_dict.items():
+        tokens.append(tokenizer_fn(name))
+        labels.append(CIQUAL_TO_IDX[ciqual])
+
+    data = {"tokens": tokens, "label": labels}
+    dataset = ProductDataset(data)
+
+    return DataLoader(dataset, batch_size=32, shuffle=False)
+
+
+def get_product_loaders(cfg, tokenize_fn):
+    train_cache = os.path.join(cfg.cache_path, "train.pt")
+    val_cache = os.path.join(cfg.cache_path, "val.pt")
+    if cfg.use_cached:
+        if cfg.n_folds <= 1 and os.path.exists(train_cache):
+            return torch.load(train_cache), []
+        pass
+        # TODO implement dataset caching
+
+    df = pd.read_csv(cfg.csv_path)
+
+    if cfg.debug:
+        df = df.head(10000)
+
+    df = df[df['name'].notnull()]
+    df['label'] = df['ciqual'].apply(lambda x: CIQUAL_TO_IDX.get(x))
+    df = df[df['label'].notnull()]
+    df = df[df['name'].notnull()]
+    df['tokens'] = df['name'].apply(tokenize_fn)
+
+    if cfg.n_folds <= 1:
+        train_df, val_df = train_test_split(df, test_size=0.8)
+        train_loader = df_to_loader(train_df, shuffle=True)
+        val_loader = df_to_loader(val_df, shuffle=False)
+        # torch.save([loader], f=train_cache)
+
+        return [train_loader], [val_loader]
+
+    else:
+        from sklearn.model_selection import StratifiedKFold
+        skf = StratifiedKFold(n_splits=3)
+        for fold_idx, (train_index, test_index) in enumerate(skf.split(df, df['lang'])):
+            # split the dataframe into training and testing sets
+            train_set = df.iloc[train_index]
+            test_set = df.iloc[test_index]
+
+        return [loader], []
+
+
+def df_to_loader(df, shuffle):
+    data = {"tokens": df["tokens"].tolist(), "label": df["label"].tolist()}
+    dataset = ProductDataset(data)
+    loader = DataLoader(dataset, batch_size=32, shuffle=shuffle)
+    return loader
