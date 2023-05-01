@@ -7,11 +7,12 @@ import torch
 import yaml
 from datasets import Dataset, load_from_disk
 from googletrans import Translator
+from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
-from util import CIQUAL_TO_IDX
+from harrygobert.util import CIQUAL_TO_IDX
 
 SEPARATOR = ' & '
 
@@ -291,7 +292,7 @@ def get_product_loaders(cfg, tokenize_fn):
         return [train_loader], [val_loader]
 
     else:
-        from sklearn.model_selection import StratifiedKFold
+        # TODO: set up (cross-)validation procedure
         skf = StratifiedKFold(n_splits=3)
         for fold_idx, (train_index, test_index) in enumerate(skf.split(df, df['lang'])):
             # split the dataframe into training and testing sets

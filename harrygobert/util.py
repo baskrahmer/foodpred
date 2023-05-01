@@ -232,6 +232,8 @@ def parse_args():
     parser.add_argument('--quantize', default=False, type=bool, help='Whether or not to quantize the output model')
     parser.add_argument('--es_delta', default=0.01, type=float, help='Early stopping delta')
     parser.add_argument('--es_patience', default=10, type=int, help='Early stopping patience')
+    parser.add_argument('--tokenizer_json_path', default="tokenizer")
+    parser.add_argument('--model_onnx_path', default="model.onnx")
 
     # Data settings
     parser.add_argument('--translate', default=True, type=bool, help='Whether to translate text')

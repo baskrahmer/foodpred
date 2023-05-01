@@ -2,7 +2,7 @@ import torch
 import torchmetrics
 from lightning import LightningModule
 from torch import nn as nn
-from transformers import AutoModel, get_linear_schedule_with_warmup
+from transformers import AutoModel, get_linear_schedule_with_warmup, AutoTokenizer
 
 
 class OFFClassificationModel(LightningModule):
@@ -82,7 +82,7 @@ class OFFClassificationModel(LightningModule):
         acc = self.valid_acc[dataloader_idx](outputs, batch['labels'])
 
         self.log("val_loss", loss, on_epoch=True)
-        self.log('valid_acc', acc, on_step=True, on_epoch=True)
+        self.log('valid_acc', acc, on_step=False, on_epoch=True)
 
         return {"loss": loss}
 
@@ -104,3 +104,19 @@ class OFFClassificationModel(LightningModule):
         }
 
         return [optimizer], [scheduler]
+
+
+def get_tokenizer(cfg):
+    tokenizer = AutoTokenizer.from_pretrained(cfg.model_name)
+    return tokenizer
+
+
+def get_tokenize_fn(cfg, tokenizer):
+    tokenize_fn = lambda x: tokenizer(
+        x,
+        truncation=True,
+        max_length=cfg.max_len,
+        return_tensors='pt',
+        padding="max_length"
+    )
+    return tokenize_fn

@@ -2,8 +2,6 @@ resource "aws_acm_certificate" "api_cert" {
   domain_name       = "api.${var.site_domain}"
   validation_method = "DNS"
 
-  #  subject_alternative_names = [var.site_domain, "*.${var.site_domain}"]
-
   tags = {
     Name = var.site_domain
   }
@@ -17,7 +15,7 @@ resource "cloudflare_record" "api_acm" {
   type  = aws_acm_certificate.api_cert.domain_validation_options.*.resource_record_type[0]
   value = trimsuffix(aws_acm_certificate.api_cert.domain_validation_options.*.resource_record_value[0], ".")
 
-  // Must be set to false. ACM validation false otherwise
+  // Must be set to false for ACM validation
   proxied = false
 }
 
