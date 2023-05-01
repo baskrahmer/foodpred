@@ -7,11 +7,12 @@ import torch
 import yaml
 from datasets import Dataset, load_from_disk
 from googletrans import Translator
+from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
-from util import CIQUAL_TO_IDX
+from harrygobert.util import CIQUAL_TO_IDX
 
 SEPARATOR = ' & '
 
@@ -259,7 +260,7 @@ def get_identity_loader(cfg, tokenizer_fn):
     data = {"tokens": tokens, "label": labels}
     dataset = ProductDataset(data)
 
-    return DataLoader(dataset, batch_size=32, shuffle=False)
+    return DataLoader(dataset, batch_size=cfg.val_batch_size, shuffle=False)
 
 
 def get_product_loaders(cfg, tokenize_fn):
@@ -284,14 +285,14 @@ def get_product_loaders(cfg, tokenize_fn):
 
     if cfg.n_folds <= 1:
         train_df, val_df = train_test_split(df, test_size=0.8)
-        train_loader = df_to_loader(train_df, shuffle=True)
-        val_loader = df_to_loader(val_df, shuffle=False)
+        train_loader = df_to_loader(train_df, shuffle=True, batch_size=cfg.batch_size)
+        val_loader = df_to_loader(val_df, shuffle=False, batch_size=cfg.val_batch_size)
         # torch.save([loader], f=train_cache)
 
         return [train_loader], [val_loader]
 
     else:
-        from sklearn.model_selection import StratifiedKFold
+        # TODO: set up (cross-)validation procedure
         skf = StratifiedKFold(n_splits=3)
         for fold_idx, (train_index, test_index) in enumerate(skf.split(df, df['lang'])):
             # split the dataframe into training and testing sets
@@ -301,8 +302,8 @@ def get_product_loaders(cfg, tokenize_fn):
         return [loader], []
 
 
-def df_to_loader(df, shuffle):
+def df_to_loader(df, shuffle, batch_size):
     data = {"tokens": df["tokens"].tolist(), "label": df["label"].tolist()}
     dataset = ProductDataset(data)
-    loader = DataLoader(dataset, batch_size=32, shuffle=shuffle)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     return loader

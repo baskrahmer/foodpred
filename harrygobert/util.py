@@ -212,7 +212,8 @@ def parse_args():
     parser.add_argument('--model_name', default="distilbert-base-multilingual-cased", type=str,
                         help='Name of the pre-trained model')
     parser.add_argument('--n_accumulation_steps', default=1, type=int, help='Number of steps to accumulate gradients')
-    parser.add_argument('--batch_size', default=64, type=int, help='Batch size for training')
+    parser.add_argument('--batch_size', default=32, type=int, help='Batch size for training')
+    parser.add_argument('--val_batch_size', default=256, type=int, help='Batch size for validation')
     parser.add_argument('--warmup_ratio', default=0.1, type=float, help='Ratio of steps for warmup phase')
     parser.add_argument('--max_len', default=32, type=int, help='Maximum sequence length')
     parser.add_argument('--num_steps', default=8000, type=int, help='Number of steps to train for')
@@ -231,6 +232,8 @@ def parse_args():
     parser.add_argument('--quantize', default=False, type=bool, help='Whether or not to quantize the output model')
     parser.add_argument('--es_delta', default=0.01, type=float, help='Early stopping delta')
     parser.add_argument('--es_patience', default=10, type=int, help='Early stopping patience')
+    parser.add_argument('--tokenizer_json_path', default="tokenizer")
+    parser.add_argument('--model_onnx_path', default="model.onnx")
 
     # Data settings
     parser.add_argument('--translate', default=True, type=bool, help='Whether to translate text')

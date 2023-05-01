@@ -18,6 +18,12 @@ model, tokenizer = get_model_function(config)
 
 
 def lambda_handler(event, context):
+    if 'warmup' in event:
+        return {
+            'statusCode': 200,
+            'body': json.dumps('Warm-up successful')
+        }
+
     query = event["queryStringParameters"].get("query")
 
     logging.info("tokenizing")

@@ -27,13 +27,10 @@ resource "cloudflare_record" "site_cert_val" {
   type  = aws_acm_certificate.cert.domain_validation_options.*.resource_record_type[0]
   value = trimsuffix(aws_acm_certificate.cert.domain_validation_options.*.resource_record_value[0], ".")
 
-  // Must be set to false. ACM validation false otherwise
+  // Must be set to false for ACM validation
   proxied = false
 }
 
-// This configuration uses Cloudfront defaults
-// Cloudfront is required for static site hosting with S3 if bucket name is
-// already taken.
 resource "aws_cloudfront_distribution" "site_dist" {
   origin {
     domain_name = aws_s3_bucket_website_configuration.site.website_endpoint

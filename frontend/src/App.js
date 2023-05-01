@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
 import About from "./About";
 import Navigation from "./Navigation";
@@ -25,8 +25,8 @@ function App() {
     const { pred, ef_score, prob } = await response.json();
 
     setPrediction(pred);
-    setEfScore(ef_score);
-    setProbability(prob);
+    setEfScore(Number(ef_score).toFixed(3));
+    setProbability(Number(prob).toFixed(3));
   };
 
   const handleFoodInputChange = (e) => {
@@ -34,6 +34,14 @@ function App() {
     setFoodInput(input);
     calculateEcoScore(input);
   };
+
+  useEffect(() => {
+    // Make a GET request to the API URL to warm up the Lambda function
+    fetch(`https://${process.env.REACT_APP_API_URL}/warmup`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+  }, []);
 
   return (
     <Router>
@@ -45,7 +53,7 @@ function App() {
           <Route path="/" exact>
             <main>
               <div className="container">
-                <h1>EcoScore Calculator</h1>
+                <h1>Food Predictor</h1>
                 <div className="input-container">
                   <input
                     type="text"

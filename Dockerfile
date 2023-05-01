@@ -18,6 +18,7 @@ COPY app.py app_helpers.py ./
 
 FROM build AS test
 
+# Smoketest Lambda function
 COPY _test_lambda.py ./
 RUN python3.9 _test_lambda.py
 

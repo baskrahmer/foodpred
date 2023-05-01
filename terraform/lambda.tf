@@ -15,12 +15,6 @@ resource "aws_iam_role" "lambda_role" {
   managed_policy_arns = ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
 }
 
-#data "archive_file" "python_lambda_package" {
-#  type        = "zip"
-#  source_file = "${path.module}/../lambda_function.py"
-#  output_path = "nametest.zip"
-#}
-
 resource "aws_lambda_function" "lambda_test_function" {
   function_name = "foodpred"
   image_uri     = "594760667920.dkr.ecr.eu-central-1.amazonaws.com/foodpred:latest"
