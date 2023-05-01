@@ -25,8 +25,8 @@ function App() {
     const { pred, ef_score, prob } = await response.json();
 
     setPrediction(pred);
-    setEfScore(ef_score);
-    setProbability(prob);
+    setEfScore(Number(ef_score).toFixed(3));
+    setProbability(Number(prob).toFixed(3));
   };
 
   const handleFoodInputChange = (e) => {
@@ -53,7 +53,7 @@ function App() {
           <Route path="/" exact>
             <main>
               <div className="container">
-                <h1>EcoScore Calculator</h1>
+                <h1>Food Predictor</h1>
                 <div className="input-container">
                   <input
                     type="text"
