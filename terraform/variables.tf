@@ -4,3 +4,5 @@ variable "site_domain" {
 }
 variable "ecr_registry" {
 }
+variable "image_uri" {
+}
