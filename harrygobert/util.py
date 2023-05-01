@@ -212,7 +212,8 @@ def parse_args():
     parser.add_argument('--model_name', default="distilbert-base-multilingual-cased", type=str,
                         help='Name of the pre-trained model')
     parser.add_argument('--n_accumulation_steps', default=1, type=int, help='Number of steps to accumulate gradients')
-    parser.add_argument('--batch_size', default=64, type=int, help='Batch size for training')
+    parser.add_argument('--batch_size', default=32, type=int, help='Batch size for training')
+    parser.add_argument('--val_batch_size', default=256, type=int, help='Batch size for validation')
     parser.add_argument('--warmup_ratio', default=0.1, type=float, help='Ratio of steps for warmup phase')
     parser.add_argument('--max_len', default=32, type=int, help='Maximum sequence length')
     parser.add_argument('--num_steps', default=8000, type=int, help='Number of steps to train for')

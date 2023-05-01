@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
 import About from "./About";
 import Navigation from "./Navigation";
@@ -34,6 +34,14 @@ function App() {
     setFoodInput(input);
     calculateEcoScore(input);
   };
+
+  useEffect(() => {
+    // Make a GET request to the API URL to warm up the Lambda function
+    fetch(`https://${process.env.REACT_APP_API_URL}/warmup`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+  }, []);
 
   return (
     <Router>
