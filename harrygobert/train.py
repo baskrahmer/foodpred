@@ -1,17 +1,19 @@
 import torch
-from harrygobert.model.model import OFFClassificationModel
 from lightning import Trainer
 from lightning import seed_everything
 
-import harrygobert.export
 from harrygobert.data import get_dataloaders
 from harrygobert.export import quantize, export_model_and_tokenizer, test_model_inference
-from harrygobert.model import get_tokenizer, get_tokenize_fn
+from harrygobert.model import OFFClassificationModel, get_tokenizer, get_tokenize_fn
 from harrygobert.util import get_callbacks, get_wandb_logger, parse_args
 
 
 def main(cfg):
     seed_everything(1997)
+
+    if cfg.debug:
+        cfg.num_steps = 200
+
     if torch.cuda.is_available():
         torch.cuda.set_device(0)
 
@@ -31,6 +33,7 @@ def main(cfg):
         check_val_every_n_epoch=None,
         logger=wandb_logger if cfg.use_wandb else None,
         callbacks=get_callbacks(cfg),
+        precision=cfg.precision,
     )
 
     trainer.fit(
@@ -39,11 +42,8 @@ def main(cfg):
         val_dataloaders=val,
     )
 
-    if cfg.grid_search:
-        raise NotImplementedError
-
-    if harrygobert.export.quantize:
-        model = quantize(cfg, train, trainer, val)
+    if cfg.quantize:
+        model = quantize(cfg, trainer, train, val)
     export_model_and_tokenizer(cfg, model, tokenizer)
     test_model_inference(cfg)
 

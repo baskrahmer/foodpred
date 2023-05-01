@@ -9,12 +9,22 @@ class OFFClassificationModel(LightningModule):
 
     def __init__(self, cfg):
         super().__init__()
-        self.lr = cfg.learning_rate
+        # Training settings
+        self.encoder_lr = cfg.encoder_lr
+        self.decoder_lr = cfg.decoder_lr
+        self.llrd = cfg.llrd
         self.num_steps = cfg.num_steps
+        self.weight_decay = cfg.weight_decay
+
+        # Model settings
         self.base_model = AutoModel.from_pretrained(cfg.model_name)
         self.dropout = nn.Dropout(cfg.dropout)
         self.readout = nn.Linear(self.base_model.config.hidden_size, cfg.n_classes)
+
+        # Loss
         self.loss = nn.CrossEntropyLoss()
+
+        # Metrics
         self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=cfg.n_classes)
         self.valid_acc = [torchmetrics.Accuracy(task="multiclass", num_classes=cfg.n_classes) for _ in range(2)]
         if torch.cuda.is_available():
@@ -31,18 +41,60 @@ class OFFClassificationModel(LightningModule):
         mean_embeddings = sum_embeddings / sum_mask
         return mean_embeddings
 
-    def _get_optimizer_parameters(self):
+    def _get_optimizer_parameters(self, no_decay=[]):
 
-        base_params = {
-            "params": self.base_model.parameters(),
-            "lr": self.lr * 0.1
-        }
-        readout_params = {
-            "params": self.readout.parameters(),
-            "lr": self.lr
-        }
+        optimizer_params = []
 
-        return [base_params, readout_params]
+        # Classifier
+        classifier_parameters = {
+            'params': [p for n, p in self.named_parameters() if n.startswith("readout")],
+            'lr': self.decoder_lr, 'weight_decay': self.weight_decay
+        }
+        optimizer_params.append(classifier_parameters)
+
+        lr = self.encoder_lr
+        weight_decay = self.weight_decay * (self.encoder_lr / self.decoder_lr)
+
+        n_layers = self.base_model.config.n_layers
+
+        # Layers
+        for i in range(n_layers - 1, -1, -1):
+            decay_parameters = {
+                'params': [p for n, p in self.named_parameters()
+                           if n.startswith(f"base_model.transformer.layer.{i}.") and any(nd in n for nd in no_decay)],
+                'lr': lr, 'weight_decay': weight_decay
+            }
+            no_decay_parameters = {
+                'params': [p for n, p in self.named_parameters()
+                           if
+                           n.startswith(f"base_model.transformer.layer.{i}.") and not any(nd in n for nd in no_decay)],
+                'lr': lr, 'weight_decay': 0.0
+            }
+
+            optimizer_params.append(decay_parameters)
+            optimizer_params.append(no_decay_parameters)
+
+            lr *= self.llrd
+            weight_decay *= self.llrd
+
+        # Embeddings
+        emb_parameters = {
+            'params': [p for n, p in self.named_parameters() if "embeddings.word_embeddings" in n],
+            'lr': lr, 'weight_decay': 0.0
+        }
+        pos_emb_params = {
+            'params': [p for n, p in self.named_parameters() if "embeddings.position_embeddings" in n],
+            'lr': lr, 'weight_decay': 0.0
+        }
+        emb_norm_parameters = {
+            'params': [p for n, p in self.named_parameters() if "embeddings.LayerNorm" in n],
+            'lr': lr, 'weight_decay': 0.0
+        }
+        optimizer_params.append(emb_parameters)
+        optimizer_params.append(pos_emb_params)
+        optimizer_params.append(emb_norm_parameters)
+
+        return optimizer_params
 
     def forward(self, input_ids, attention_mask, labels=None):
         outputs = self.base_model(input_ids, attention_mask=attention_mask).last_hidden_state
@@ -89,7 +141,7 @@ class OFFClassificationModel(LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
             params=self._get_optimizer_parameters(),
-            lr=self.lr,
+            lr=self.encoder_lr,
             betas=(0.9, 0.95),
         )
         scheduler = get_linear_schedule_with_warmup(
