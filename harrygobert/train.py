@@ -3,7 +3,7 @@ from lightning import Trainer
 from lightning import seed_everything
 
 from harrygobert.data import get_dataloaders
-from harrygobert.export import quantize, export_model_and_tokenizer, test_model_inference
+from harrygobert.export import export_model_and_tokenizer, test_model_inference
 from harrygobert.model import OFFClassificationModel, get_tokenizer, get_tokenize_fn
 from harrygobert.util import get_callbacks, get_wandb_logger, parse_args
 
@@ -12,7 +12,7 @@ def main(cfg):
     seed_everything(1997)
 
     if cfg.debug:
-        cfg.num_steps = 200
+        cfg.num_steps = 10
 
     if torch.cuda.is_available():
         torch.cuda.set_device(0)
@@ -43,6 +43,7 @@ def main(cfg):
     )
 
     if cfg.quantize:
+        from harrygobert.quantize import quantize
         model = quantize(cfg, trainer, train, val)
     export_model_and_tokenizer(cfg, model, tokenizer)
     test_model_inference(cfg)

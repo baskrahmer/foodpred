@@ -5,6 +5,7 @@ import numpy as np
 import yaml
 
 from app_helpers import preprocess, get_model_function
+from static import classes
 
 if len(logging.getLogger().handlers) > 0:
     logging.getLogger().setLevel(logging.INFO)
@@ -12,7 +13,6 @@ else:
     logging.basicConfig(level=logging.INFO)
 
 config = yaml.safe_load(open("config.yaml"))
-data = np.load(config["raw_names"])
 lci_data = yaml.safe_load(open(config["data_file"]))
 model, tokenizer = get_model_function(config)
 
@@ -40,7 +40,7 @@ def lambda_handler(event, context):
 
     argmax_idx = int(np.argmax(probs))
     logging.info(f"argmax_idx: {argmax_idx}")
-    pred = data[argmax_idx]
+    pred = classes[argmax_idx]
     prob = float(np.max(probs))
     ef_score = lci_data[preprocess(pred)]['synthese']
 
