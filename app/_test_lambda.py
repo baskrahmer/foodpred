@@ -3,7 +3,7 @@ from app import lambda_handler
 out = lambda_handler(
     event={
         "queryStringParameters": {
-            "query": "persil"
+            "query": "pizza"
         }
     },
     context=None

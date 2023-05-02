@@ -6,7 +6,7 @@ RUN python3.9 -m pip install --upgrade pip
 RUN python3.9 -m pip install torch==2.0.0 -f https://download.pytorch.org/whl/cpu/torch
 
 COPY requirements.txt ./
-RUN python3.9 -m pip install -r requirements.txt -t .
+RUN python3.9 -m pip install -r requirements.txt
 
 COPY model_tokenizer ./model_tokenizer
 COPY model.onnx .
