@@ -46,6 +46,12 @@ resource "aws_apigatewayv2_stage" "default" {
     }
     )
   }
+
+  default_route_settings {
+    throttling_burst_limit = 10
+    throttling_rate_limit  = 10
+  }
+
   depends_on = [aws_cloudwatch_log_group.api_gw]
 }
 
