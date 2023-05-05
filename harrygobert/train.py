@@ -8,7 +8,9 @@ from harrygobert.model import OFFClassificationModel, get_tokenizer, get_tokeniz
 from harrygobert.util import get_callbacks, get_wandb_logger, parse_args
 
 
-def main(cfg):
+def main():
+    cfg = parse_args()
+
     seed_everything(1997)
 
     if cfg.debug:
@@ -20,11 +22,10 @@ def main(cfg):
     if cfg.use_wandb:
         wandb_logger = get_wandb_logger(cfg)
 
-    model = OFFClassificationModel(cfg)
     tokenizer = get_tokenizer(cfg)
     tokenize_fn = get_tokenize_fn(cfg, tokenizer)
-
-    train, val = get_dataloaders(cfg, tokenize_fn)
+    train, val, label_weights = get_dataloaders(cfg, tokenize_fn)
+    model = OFFClassificationModel(cfg, label_weights=label_weights)
 
     trainer = Trainer(
         accelerator="auto",
@@ -50,5 +51,4 @@ def main(cfg):
 
 
 if __name__ == '__main__':
-    args = parse_args()
-    main(args)
+    main()

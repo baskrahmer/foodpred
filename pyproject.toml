@@ -6,7 +6,7 @@ authors = ["Bas Krahmer <baskrahmer@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.scripts]
-harrygobert = "harrygobert.train"
+harrygobert = "harrygobert.train:main"
 
 [tool.poetry.dependencies]
 python = "^3.9"
