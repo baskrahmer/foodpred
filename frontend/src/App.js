@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
 import About from "./About";
 import Navigation from "./Navigation";
@@ -8,6 +8,8 @@ function App() {
   const [prediction, setPrediction] = useState("-");
   const [efScore, setEfScore] = useState("-");
   const [probability, setProbability] = useState("-");
+  const debounceMs = 500;
+  const debounceTimer = useRef(null);
 
   const calculateEcoScore = async (input) => {
     if (input.trim() === "") {
@@ -17,10 +19,15 @@ function App() {
       return;
     }
 
-    const response = await fetch(`https://${process.env.REACT_APP_API_URL}/?query=${encodeURIComponent(input)}`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
+    const response = await fetch(
+      `https://${process.env.REACT_APP_API_URL}/?query=${encodeURIComponent(
+        input
+      )}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      }
+    );
 
     const { pred, ef_score, prob } = await response.json();
 
@@ -32,7 +39,16 @@ function App() {
   const handleFoodInputChange = (e) => {
     const input = e.target.value;
     setFoodInput(input);
-    calculateEcoScore(input);
+
+    // Cancel the previous debounce if it exists
+    if (debounceTimer.current !== null) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    // Set up a new debounce timer
+    debounceTimer.current = setTimeout(() => {
+      calculateEcoScore(input);
+    }, debounceMs);
   };
 
   useEffect(() => {
