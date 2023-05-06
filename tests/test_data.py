@@ -14,6 +14,7 @@ def test_data():
     cfg = parse_args()
     cfg.debug = True
     cfg.csv_path = os.path.join(os.path.dirname(__file__), "test.csv")
+    cfg.use_wandb = False
     tokenizer = get_tokenizer(cfg)
     tokenize_fn = get_tokenize_fn(cfg, tokenizer)
     get_dataloaders(cfg, tokenize_fn)
