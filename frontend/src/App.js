@@ -8,6 +8,7 @@ function App() {
   const [prediction, setPrediction] = useState("-");
   const [efScore, setEfScore] = useState("-");
   const [probability, setProbability] = useState("-");
+  const [isLoading, setIsLoading] = useState(true);
 
   const calculateEcoScore = async (input) => {
     if (input.trim() === "") {
@@ -40,7 +41,8 @@ function App() {
     fetch(`https://${process.env.REACT_APP_API_URL}/warmup`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
-    });
+    })
+      .then(() => setIsLoading(false));
   }, []);
 
   return (
@@ -49,36 +51,43 @@ function App() {
         <header>
           <Navigation />
         </header>
-        <Switch>
-          <Route path="/" exact>
-            <main>
-              <div className="container">
-                <h1>Food Predictor</h1>
-                <div className="input-container">
-                  <input
-                    type="text"
-                    id="foodInput"
-                    placeholder="Enter food product"
-                    value={foodInput}
-                    onChange={handleFoodInputChange}
-                  />
-                  <p className="result" id="prediction">
-                    Prediction: <span id="predictionValue">{prediction}</span>
-                  </p>
-                  <p className="result" id="efScore">
-                    EF Score: <span id="efScoreValue">{efScore}</span>
-                  </p>
-                  <p className="result" id="probability">
-                    Probability: <span id="probabilityValue">{probability}</span>
-                  </p>
+        {isLoading ? (
+          <div className="loading-container">
+            <progress className="progress-bar" max="100"></progress>
+            <p>Loading the model, please wait...</p>
+          </div>
+        ) : (
+          <Switch>
+            <Route path="/" exact>
+              <main>
+                <div className="container">
+                  <h1>Food Predictor</h1>
+                  <div className="input-container">
+                    <input
+                      type="text"
+                      id="foodInput"
+                      placeholder="Enter food product"
+                      value={foodInput}
+                      onChange={handleFoodInputChange}
+                    />
+                    <p className="result" id="prediction">
+                      Prediction: <span id="predictionValue">{prediction}</span>
+                    </p>
+                    <p className="result" id="efScore">
+                      EF Score: <span id="efScoreValue">{efScore}</span>
+                    </p>
+                    <p className="result" id="probability">
+                      Probability: <span id="probabilityValue">{probability}</span>
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </main>
-          </Route>
-          <Route path="/about">
-            <About />
-          </Route>
-        </Switch>
+              </main>
+            </Route>
+            <Route path="/about">
+              <About />
+            </Route>
+          </Switch>
+        )}
       </>
     </Router>
   );

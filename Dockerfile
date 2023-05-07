@@ -11,7 +11,7 @@ RUN python3.9 -m pip install -r requirements.txt
 COPY model_tokenizer ./model_tokenizer
 COPY model.onnx .
 
-COPY static.py lci_data.yaml ./
+COPY static.py ciqual_summary.yaml ./
 COPY config.yaml ./
 
 COPY app.py app_helpers.py ./
