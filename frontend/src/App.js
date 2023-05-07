@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
 import About from "./About";
 import Navigation from "./Navigation";
+import EcoScorePieChart from "./EcoScorePieChart";
+import useDebouncedCallback from "./DebouncedCallback";
 
 function App() {
   const [foodInput, setFoodInput] = useState("");
@@ -9,8 +11,8 @@ function App() {
   const [efScore, setEfScore] = useState("-");
   const [probability, setProbability] = useState("-");
   const debounceMs = 500;
-  const debounceTimer = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [efPhases, setEfPhases] = useState({});
 
   const calculateEcoScore = async (input) => {
     if (input.trim() === "") {
@@ -20,45 +22,45 @@ function App() {
       return;
     }
 
-    const response = await fetch(`https://${process.env.REACT_APP_API_URL}/?query=${encodeURIComponent(input)}`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
+    const response = await fetch(
+      `https://${process.env.REACT_APP_API_URL}/?query=${encodeURIComponent(input)}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      }
+    );
 
-    const { pred, ef_score, prob } = await response.json();
+    const { pred, ef_score, prob, ef_phases } = await response.json();
 
     setPrediction(pred);
     setEfScore(Number(ef_score).toFixed(3));
     setProbability(Number(prob).toFixed(3));
+    setEfPhases(ef_phases);
   };
+
+  const debouncedCalculateEcoScore = useDebouncedCallback(calculateEcoScore, debounceMs);
 
   const handleFoodInputChange = (e) => {
     const input = e.target.value;
     setFoodInput(input);
-
-    // Cancel the previous debounce if it exists
-    if (debounceTimer.current !== null) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    // Set up a new debounce timer
-    debounceTimer.current = setTimeout(() => {
-      calculateEcoScore(input);
-    }, debounceMs);
+    debouncedCalculateEcoScore(input);
   };
 
   useEffect(() => {
-    // Make a GET request to the API URL to warm up the Lambda function
     fetch(`https://${process.env.REACT_APP_API_URL}/warmup`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     })
-      .then(() => setIsLoading(false));
+      .then(() => setIsLoading(false))
+      .catch((error) => {
+        console.error("Error warming up the Lambda function:", error);
+        setIsLoading(false);
+      });
   }, []);
 
   return (
     <Router>
-      <>
+      <React.Fragment>
         <header>
           <Navigation />
         </header>
@@ -91,15 +93,16 @@ function App() {
                       Probability: <span id="probabilityValue">{probability}</span>
                     </p>
                   </div>
+                  <EcoScorePieChart efPhases={efPhases} />
                 </div>
               </main>
             </Route>
             <Route path="/about">
               <About />
-            </Route>
+            </Route> {/* Closing angle bracket added here */}
           </Switch>
         )}
-      </>
+      </React.Fragment>
     </Router>
   );
 }
