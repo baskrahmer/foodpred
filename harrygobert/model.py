@@ -7,7 +7,7 @@ from transformers import AutoModel, get_linear_schedule_with_warmup, AutoTokeniz
 
 class OFFClassificationModel(LightningModule):
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, label_weights=None):
         super().__init__()
         # Training settings
         self.encoder_lr = cfg.encoder_lr
@@ -22,7 +22,7 @@ class OFFClassificationModel(LightningModule):
         self.readout = nn.Linear(self.base_model.config.hidden_size, cfg.n_classes)
 
         # Loss
-        self.loss = nn.CrossEntropyLoss()
+        self.loss = nn.CrossEntropyLoss(weight=torch.tensor(label_weights, dtype=torch.float32))
 
         # Metrics
         self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=cfg.n_classes)

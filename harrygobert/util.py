@@ -73,8 +73,6 @@ def parse_args():
 
     # Data settings
     parser.add_argument('--translate', default=True, type=bool, help='Whether to translate text')
-    parser.add_argument('--use_cached', default=False, type=bool, help='Whether to use cached data')
-    parser.add_argument('--use_subcats', default=False, type=bool, help='Whether to use sub-categories')
     parser.add_argument('--n_classes', default=2473, type=int, help='Number of classes')
     parser.add_argument('--agribalyse_path',
                         default=os.path.join(root_path, 'data/product_to_ciqual.yaml'), type=str,
@@ -84,8 +82,6 @@ def parse_args():
     parser.add_argument('--ciqual_to_name_path', default=os.path.join(root_path, 'data/ciqual_to_lci_name.yaml'),
                         type=str, help='Path to CIQUAL name dict')
     parser.add_argument('--csv_path', default=os.path.join(root_path, 'data/products.csv'), type=str,
-                        help='Path to CSV products data')
-    parser.add_argument('--cache_path', default=os.path.join(root_path, 'data/cache'), type=str,
                         help='Path to CSV products data')
 
     # Logging settings
