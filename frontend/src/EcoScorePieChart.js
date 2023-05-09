@@ -17,18 +17,28 @@ const EcoScorePieChart = ({ efPhases }) => {
       {
         data: values,
         backgroundColor: [
-          "#FF6384",
-          "#36A2EB",
-          "#FFCE56",
-          "#4BC0C0",
-          "#E7E9ED",
-          "#9966FF",
+          "#FF8F00",
+          "#FFB900",
+          "#FFD54F",
+          "#FFF176",
+          "#ECEFF1",
+          "#B2EBF2",
+        ],
+        borderWidth: 0,
+        hoverBackgroundColor: [
+          "#FFA000",
+          "#FFC107",
+          "#FFEB3B",
+          "#FFFF8D",
+          "#CFD8DC",
+          "#80DEEA",
         ],
       },
     ],
   };
 
   const options = {
+    maintainAspectRatio: false,
     plugins: {
       tooltip: {
         callbacks: {
@@ -40,6 +50,14 @@ const EcoScorePieChart = ({ efPhases }) => {
             const percentage = ((value / total) * 100).toFixed(2);
             return `${percentage}%`;
           },
+        },
+      },
+      legend: {
+        position: 'right',
+        labels: {
+          boxWidth: 15,
+          padding: 15,
+          usePointStyle: true,
         },
       },
     },

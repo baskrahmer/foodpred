@@ -7,18 +7,18 @@ import useDebouncedCallback from "./DebouncedCallback";
 
 function App() {
   const [foodInput, setFoodInput] = useState("");
-  const [prediction, setPrediction] = useState("-");
-  const [efScore, setEfScore] = useState("-");
-  const [probability, setProbability] = useState("-");
+  const [prediction, setPrediction] = useState(null);
+  const [efScore, setEfScore] = useState(null);
+  const [probability, setProbability] = useState(null);
   const debounceMs = 500;
   const [isLoading, setIsLoading] = useState(true);
   const [efPhases, setEfPhases] = useState({});
 
   const calculateEcoScore = async (input) => {
     if (input.trim() === "") {
-      setPrediction("-");
-      setEfScore("-");
-      setProbability("-");
+      setPrediction(null);
+      setEfScore(null);
+      setProbability(null);
       return;
     }
 
@@ -58,7 +58,7 @@ function App() {
       });
   }, []);
 
-  return (
+return (
     <Router>
       <React.Fragment>
         <header>
@@ -83,23 +83,38 @@ function App() {
                       value={foodInput}
                       onChange={handleFoodInputChange}
                     />
-                    <p className="result" id="prediction">
-                      Prediction: <span id="predictionValue">{prediction}</span>
-                    </p>
-                    <p className="result" id="efScore">
-                      EF Score: <span id="efScoreValue">{efScore}</span>
-                    </p>
-                    <p className="result" id="probability">
-                      Probability: <span id="probabilityValue">{probability}</span>
-                    </p>
                   </div>
-                  <EcoScorePieChart efPhases={efPhases} />
+                  {foodInput.trim() !== "" && (
+                    <div className="output-container">
+                      <div className="result-container">
+                        <table>
+                          <tbody>
+                            <tr>
+                              <td>Prediction</td>
+                              <td><span id="predictionValue">{prediction}</span></td>
+                            </tr>
+                            <tr>
+                              <td>EF Score</td>
+                              <td><span id="efScoreValue">{efScore}</span></td>
+                            </tr>
+                            <tr>
+                              <td>Probability</td>
+                              <td><span id="probabilityValue">{probability}</span></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="chart-container">
+                        <EcoScorePieChart efPhases={efPhases} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </main>
             </Route>
             <Route path="/about">
               <About />
-            </Route> {/* Closing angle bracket added here */}
+            </Route>
           </Switch>
         )}
       </React.Fragment>
