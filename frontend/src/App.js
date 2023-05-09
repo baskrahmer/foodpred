@@ -9,6 +9,7 @@ function App() {
   const [foodInput, setFoodInput] = useState("");
   const [prediction, setPrediction] = useState(null);
   const [efScore, setEfScore] = useState(null);
+  const [co2, setCo2] = useState(null);
   const [probability, setProbability] = useState(null);
   const debounceMs = 500;
   const [isLoading, setIsLoading] = useState(true);
@@ -18,6 +19,7 @@ function App() {
     if (input.trim() === "") {
       setPrediction(null);
       setEfScore(null);
+      setCo2(null);
       setProbability(null);
       return;
     }
@@ -30,10 +32,11 @@ function App() {
       }
     );
 
-    const { pred, ef_score, prob, ef_phases } = await response.json();
+    const { pred, ef_score, prob, ef_phases, co2 } = await response.json();
 
     setPrediction(pred);
     setEfScore(Number(ef_score).toFixed(3));
+    setCo2(Number(co2).toFixed(3));
     setProbability(Number(prob).toFixed(3));
     setEfPhases(ef_phases);
   };
@@ -92,6 +95,10 @@ return (
                             <tr>
                               <td>Prediction</td>
                               <td><span id="predictionValue">{prediction}</span></td>
+                            </tr>
+                            <tr>
+                              <td>kg Co2</td>
+                              <td><span id="co2Value">{co2}</span></td>
                             </tr>
                             <tr>
                               <td>EF Score</td>
