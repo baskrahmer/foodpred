@@ -25,7 +25,7 @@ jobs:
       - name: Install project deps
         run: poetry install --with dev
       - name: Test with pytest
-        run: poetry run pytest
+        run: poetry run coverage run -m pytest
         env:
           COVERAGE_FILE: coverage/.coverage
       - name: Coverage
@@ -33,3 +33,4 @@ jobs:
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/.coverage
