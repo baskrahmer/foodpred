@@ -1,6 +1,11 @@
+[![codecov](https://codecov.io/gh/baskrahmer/harrygobert/branch/master/graph/badge.svg?token=HW8LS4VSEP)](https://codecov.io/gh/baskrahmer/harrygobert)
+
 # Introduction
 
-This is a static dump of my side-project to predict the LCI category of foods based on their name, and subsequently use this data give an indication of the Eco-Score of that product. It is a work in progress and the current live version can be viewed at [foodpred.com](https://www.foodpred.com/) (Lambda has a warmup of ~10s). Although not my most polished nor finished work; it is a good demonstration of my full-stack skills and the most recent project I can freely share.
+This is a static dump of my side-project to predict the LCI category of foods based on their name, and subsequently use
+this data give an indication of the Eco-Score of that product. It is a work in progress and the current live version can
+be viewed at [foodpred.com](https://www.foodpred.com/) (Lambda has a warmup of ~10s). Although not my most polished nor
+finished work; it is a good demonstration of my full-stack skills and the most recent project I can freely share.
 
 # Repo contents
 

@@ -1,7 +1,5 @@
-import os
-
+import numpy as np
 import pandas as pd
-import torch
 import yaml
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import train_test_split
@@ -28,13 +26,13 @@ class TokenizedDataset(Dataset):
 
 
 def get_dataloaders(cfg, tokenizer_fn):
-    train_products, val_products = get_product_loaders(cfg, tokenizer_fn)
+    train_products, val_products, label_weights = get_product_loaders(cfg, tokenizer_fn)
     id_products = get_identity_loader(cfg, tokenizer_fn)
     if cfg.n_folds == 0:
         # Blind training on full dataset
-        return train_products + [id_products], []
+        return train_products + [id_products], [], label_weights
     else:
-        return train_products, val_products + [id_products]
+        return train_products, val_products + [id_products], label_weights
 
 
 def get_identity_loader(cfg, tokenizer_fn):
@@ -52,14 +50,6 @@ def get_identity_loader(cfg, tokenizer_fn):
 
 
 def get_product_loaders(cfg, tokenize_fn):
-    train_cache = os.path.join(cfg.cache_path, "train.pt")
-    val_cache = os.path.join(cfg.cache_path, "val.pt")
-    if cfg.use_cached:
-        if cfg.n_folds <= 1 and os.path.exists(train_cache):
-            return torch.load(train_cache), []
-        pass
-        # TODO implement dataset caching
-
     df = pd.read_csv(cfg.csv_path)
 
     if cfg.debug:
@@ -70,15 +60,21 @@ def get_product_loaders(cfg, tokenize_fn):
     df.dropna(subset=['label'], inplace=True)
     df.loc[:, 'tokens'] = df['name'].apply(tokenize_fn)
 
+    label_weights = np.ones(cfg.n_classes)
+    label, freq = np.unique(df['label'], return_counts=True)
+    for l, f in list(zip(label, freq)):
+        label_weights[int(l)] += f
+    label_weights /= label_weights.sum() / cfg.n_classes
+
     if cfg.n_folds == 0:
         train_loader = df_to_loader(df, shuffle=True, batch_size=cfg.batch_size)
-        return [train_loader], []
+        return [train_loader], [], label_weights
 
     elif cfg.n_folds == 1:
         train_df, val_df = train_test_split(df, test_size=0.8)
         train_loader = df_to_loader(train_df, shuffle=True, batch_size=cfg.batch_size)
         val_loader = df_to_loader(val_df, shuffle=False, batch_size=cfg.val_batch_size)
-        return [train_loader], [val_loader]
+        return [train_loader], [val_loader], label_weights
 
     else:
         raise NotImplementedError

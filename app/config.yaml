@@ -1,5 +1,4 @@
-data_file: "lci_data.yaml"
-raw_names: "raw.npy"
+data_file: "ciqual_summary.yaml"
 n_suggestions: 5
 model_path: "./model.onnx"
 tokenizer_path: "./model_tokenizer"

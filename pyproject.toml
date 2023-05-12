@@ -6,7 +6,7 @@ authors = ["Bas Krahmer <baskrahmer@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.scripts]
-harrygobert = "harrygobert.train"
+harrygobert = "harrygobert.train:main"
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -41,9 +41,15 @@ tqdm = "4.65.0"
 transformers = "4.28.1"
 typing-extensions = "4.5.0"
 urllib3 = "1.26.15"
+pandas = "^2.0.1"
+torch = "^2.0.0"
+lightning = "^2.0.2"
+scikit-learn = "^1.2.2"
+wandb = "^0.15.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.3.1"
+coverage = "^7.2.5"
 
 [build-system]
 requires = ["poetry-core"]
