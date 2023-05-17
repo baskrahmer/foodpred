@@ -48,7 +48,8 @@ def parse_args():
     # Training settings
     parser.add_argument('--debug', default=False, type=bool, help='Debug mode')
     parser.add_argument('--precision', default=16, type=int, choices=[16, 32])
-    parser.add_argument('--model_name', default="distilbert-base-multilingual-cased", type=str,
+    parser.add_argument('--model_name', default="xlm-roberta-base", type=str,
+                        choices=["xlm-roberta-base", "distilbert-base-multilingual-cased"],
                         help='Name of the pre-trained model')
     parser.add_argument('--n_accumulation_steps', default=1, type=int, help='Number of steps to accumulate gradients')
     parser.add_argument('--batch_size', default=128, type=int, help='Batch size for training')
