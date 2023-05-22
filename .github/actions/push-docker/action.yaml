@@ -1,3 +1,5 @@
+# Note: this action is currently not used as training a model requires specialised hardware.
+# A conversion to Cloud-based training jobs is sensible precondition.
 name: Deploy Environment
 description: "Runs environment-specific deployment"
 
