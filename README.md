@@ -18,11 +18,20 @@ This project is in development and the public API is subject to change. The proj
 
 # Repository contents
 
-- `/app`: code that enters the Docker image (Dockerfile is at root for wider buidl context) (`onnx`, `AWS Lambda`)
+- `/app`: code that enters the Docker image (Dockerfile is at root for wider buidl context) (`onnx`, AWS Lambda)
 - `/harrygobert`: source code for finetuning Transformer model (`transformers`, `torch`, `lightning`)
 - `/terraform`: infrastructure code (`terraform`)
 - `/frontend`: minimal web frontend (`react`)
+- `/.github`: CI/CD jobs using OIDC
 
-# Benchmarks
+# Evaluation and limitations
 
-Creating a unified benchmark for this task is a work in progress. 
+Creating a unified benchmark for this task is a work in progress. Right now the selection metric is just a simple top-1
+validation accuracy for 5-fold cross-validation over the entire dataset, using the fixed seed in the code. Whichever
+hyperparameter configuration receives the highest score is then subsequently
+trained on the whole dataset and packaged into production format.
+
+There are several limitations to this approach, most importantly the schewed language distribution since more than half
+of the dataset products are French, and for this reason the current model does not perform as good for other languages.
+
+TODO: WANDB link to current prod model together with it's evaluation score.
