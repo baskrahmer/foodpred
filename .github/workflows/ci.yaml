@@ -23,13 +23,13 @@ jobs:
         run: poetry install --with dev
 
       - name: Test with pytest
-        run: poetry run coverage run -m pytest
-        env:
-          COVERAGE_FILE: .coverage
+        run: |
+          poetry run pytest --cov-report xml --cov=harrygobert
+
 
       - name: Coverage
         uses: codecov/codecov-action@v3.1.4
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: .coverage
+          file: ./coverage.xml
