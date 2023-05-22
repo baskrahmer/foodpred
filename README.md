@@ -34,4 +34,10 @@ trained on the whole dataset and packaged into production format.
 There are several limitations to this approach, most importantly the schewed language distribution since more than half
 of the dataset products are French, and for this reason the current model does not perform as good for other languages.
 
-TODO: WANDB link to current prod model together with it's evaluation score.
+# Prod model
+
+The production model is a fine-tuned version
+of [distilbert-base-multilingual-cased](https://huggingface.co/distilbert-base-multilingual-cased).
+The training curve can be seen
+via [this WANDB report](https://wandb.ai/baskra/harrygobert/reports/Foodpred-prod-training--Vmlldzo0NDM3MTUx). The
+hyperparameter configuration used achieves a top-1 accuracy of 0.77 using 5-fold cross-validation as described above.
