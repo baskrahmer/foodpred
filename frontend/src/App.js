@@ -70,7 +70,7 @@ return (
         {isLoading ? (
           <div className="loading-container">
             <progress className="progress-bar" max="100"></progress>
-            <p>Loading the model, please wait...</p>
+            <p>Loading the model, this can take up to a minute.</p>
           </div>
         ) : (
           <Switch>
