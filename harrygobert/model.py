@@ -43,11 +43,26 @@ class OFFClassificationModel(LightningModule):
 
     def _get_optimizer_parameters(self, no_decay=[]):
 
+        if self.base_model.config.name_or_path == "distilbert-base-multilingual-cased":
+            n_layers = self.base_model.config.n_layers
+            transformer_prefix = "base_model.transformer.layer."
+            readout_prefix = "readout"
+            emb_id = "embeddings.word_embeddings"
+            pos_id = "embeddings.position_embeddings"
+            emb_norm_id = "embeddings.LayerNorm"
+        elif self.base_model.config.name_or_path == "xlm-roberta-base":
+            n_layers = self.base_model.config.num_hidden_layers
+            transformer_prefix = "base_model.encoder.layer."
+            readout_prefix = "readout"
+            emb_id = "base_model.embeddings.word_embeddings"
+            pos_id = "base_model.embeddings.position_embeddings"
+            emb_norm_id = "base_model.embeddings.LayerNorm"
+
         optimizer_params = []
 
         # Classifier
         classifier_parameters = {
-            'params': [p for n, p in self.named_parameters() if n.startswith("readout")],
+            'params': [p for n, p in self.named_parameters() if n.startswith(readout_prefix)],
             'lr': self.decoder_lr, 'weight_decay': self.weight_decay
         }
         optimizer_params.append(classifier_parameters)
@@ -55,19 +70,16 @@ class OFFClassificationModel(LightningModule):
         lr = self.encoder_lr
         weight_decay = self.weight_decay * (self.encoder_lr / self.decoder_lr)
 
-        n_layers = self.base_model.config.n_layers
-
         # Layers
         for i in range(n_layers - 1, -1, -1):
             decay_parameters = {
                 'params': [p for n, p in self.named_parameters()
-                           if n.startswith(f"base_model.transformer.layer.{i}.") and any(nd in n for nd in no_decay)],
+                           if n.startswith(f"{transformer_prefix}{i}.") and not any(nd in n for nd in no_decay)],
                 'lr': lr, 'weight_decay': weight_decay
             }
             no_decay_parameters = {
                 'params': [p for n, p in self.named_parameters()
-                           if
-                           n.startswith(f"base_model.transformer.layer.{i}.") and not any(nd in n for nd in no_decay)],
+                           if n.startswith(f"{transformer_prefix}{i}.") and any(nd in n for nd in no_decay)],
                 'lr': lr, 'weight_decay': 0.0
             }
 
@@ -79,15 +91,15 @@ class OFFClassificationModel(LightningModule):
 
         # Embeddings
         emb_parameters = {
-            'params': [p for n, p in self.named_parameters() if "embeddings.word_embeddings" in n],
+            'params': [p for n, p in self.named_parameters() if emb_id in n],
             'lr': lr, 'weight_decay': 0.0
         }
         pos_emb_params = {
-            'params': [p for n, p in self.named_parameters() if "embeddings.position_embeddings" in n],
+            'params': [p for n, p in self.named_parameters() if pos_id in n],
             'lr': lr, 'weight_decay': 0.0
         }
         emb_norm_parameters = {
-            'params': [p for n, p in self.named_parameters() if "embeddings.LayerNorm" in n],
+            'params': [p for n, p in self.named_parameters() if emb_norm_id in n],
             'lr': lr, 'weight_decay': 0.0
         }
         optimizer_params.append(emb_parameters)

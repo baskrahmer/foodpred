@@ -8,13 +8,7 @@ from pytorch_lightning.loggers import WandbLogger
 
 def get_callbacks(cfg):
     key = "val_loss/dataloader_idx_0"
-    return [
-        pl.callbacks.ModelCheckpoint(
-            monitor=key,
-            save_on_train_epoch_end=False,
-            dirpath=cfg.save_dir,
-            every_n_epochs=1
-        ),
+    callbacks = [
         pl.callbacks.EarlyStopping(
             monitor=key,
             min_delta=cfg.es_delta,
@@ -26,6 +20,15 @@ def get_callbacks(cfg):
         pl.callbacks.LearningRateMonitor(logging_interval="step"),
         pl.callbacks.StochasticWeightAveraging(swa_lrs=1e-2)
     ]
+    if cfg.n_folds == 0:
+        callbacks.append(
+            pl.callbacks.ModelCheckpoint(
+                monitor=key,
+                save_on_train_epoch_end=False,
+                dirpath=cfg.save_dir,
+                every_n_epochs=1
+            ))
+    return callbacks
 
 
 def get_wandb_logger(cfg):
@@ -45,7 +48,8 @@ def parse_args():
     # Training settings
     parser.add_argument('--debug', default=False, type=bool, help='Debug mode')
     parser.add_argument('--precision', default=16, type=int, choices=[16, 32])
-    parser.add_argument('--model_name', default="distilbert-base-multilingual-cased", type=str,
+    parser.add_argument('--model_name', default="xlm-roberta-base", type=str,
+                        choices=["xlm-roberta-base", "distilbert-base-multilingual-cased"],
                         help='Name of the pre-trained model')
     parser.add_argument('--n_accumulation_steps', default=1, type=int, help='Number of steps to accumulate gradients')
     parser.add_argument('--batch_size', default=128, type=int, help='Batch size for training')

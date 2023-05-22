@@ -21,7 +21,7 @@ resource "aws_lambda_function" "lambda_test_function" {
   package_type  = "Image"
   role          = aws_iam_role.lambda_role.arn
   timeout       = 30
-  memory_size   = 3008 # max 3008
+  memory_size   = 3009
   ephemeral_storage {
     size = 4096 # Min 512 MB and the Max 10240 MB
   }
