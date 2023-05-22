@@ -32,12 +32,16 @@ def get_callbacks(cfg):
 
 
 def get_wandb_logger(cfg):
+    def get_logger():
+        return WandbLogger(project="harrygobert", name=cfg.run_name)
+
     try:
-        wandb_logger = WandbLogger(project="harrygobert")
+        wandb_logger = get_logger()
     except wandb.errors.UsageError:
         from getpass import getpass
         wandb.login(key=getpass("wandb API token:"))
-        wandb_logger = WandbLogger(project="harrygobert")
+        wandb_logger = get_logger()
+
     return wandb_logger
 
 
