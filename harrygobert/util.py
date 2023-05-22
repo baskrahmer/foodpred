@@ -52,7 +52,7 @@ def parse_args():
     # Training settings
     parser.add_argument('--debug', default=False, type=bool, help='Debug mode')
     parser.add_argument('--precision', default=16, type=int, choices=[16, 32])
-    parser.add_argument('--model_name', default="xlm-roberta-base", type=str,
+    parser.add_argument('--model_name', default="distilbert-base-multilingual-cased", type=str,
                         choices=["xlm-roberta-base", "distilbert-base-multilingual-cased"],
                         help='Name of the pre-trained model')
     parser.add_argument('--n_accumulation_steps', default=1, type=int, help='Number of steps to accumulate gradients')
@@ -60,10 +60,10 @@ def parse_args():
     parser.add_argument('--val_batch_size', default=256, type=int, help='Batch size for validation')
     parser.add_argument('--warmup_ratio', default=0.1, type=float, help='Ratio of steps for warmup phase')
     parser.add_argument('--max_len', default=32, type=int, help='Maximum sequence length')
-    parser.add_argument('--num_steps', default=10000, type=int, help='Number of steps to train for')
-    parser.add_argument('--encoder_lr', default=1e-5, type=float, help='Learning rate for optimizer')
-    parser.add_argument('--decoder_lr', default=1e-4, type=float, help='Learning rate for optimizer')
-    parser.add_argument('--llrd', default=0.7, type=float, help='Layer-wise learning rate decay')
+    parser.add_argument('--num_steps', default=15000, type=int, help='Number of steps to train for')
+    parser.add_argument('--encoder_lr', default=5.77e-06, type=float, help='Learning rate for optimizer')
+    parser.add_argument('--decoder_lr', default=0.0074, type=float, help='Learning rate for optimizer')
+    parser.add_argument('--llrd', default=0.87, type=float, help='Layer-wise learning rate decay')
     parser.add_argument('--dropout', default=0.2, type=float, help='Dropout rate')
     parser.add_argument('--weight_decay', default=1e-8, type=float, help='Weight decay')
     parser.add_argument('--eval_steps', default=500, type=int, help='After how many steps to do evaluation')
@@ -93,6 +93,6 @@ def parse_args():
                         help='Path to CSV products data')
 
     # Logging settings
-    parser.add_argument('--run_name', default="HGV-debug", type=str, help='Name of the run')
+    parser.add_argument('--run_name', default="foodpred-prod", type=str, help='Name of the run')
     parser.add_argument('--use_wandb', default=True, type=bool, help='Whether to use wandb')
     return parser.parse_args()
