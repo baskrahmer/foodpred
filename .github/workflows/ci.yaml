@@ -24,7 +24,7 @@ jobs:
 
       - name: Test with pytest
         run: |
-          poetry run pytest --cov-report xml --cov=harrygobert
+          poetry run pytest --cov=./ --cov-report=xml
 
 
       - name: Coverage
@@ -32,4 +32,4 @@ jobs:
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.xml
+          files: ./coverage.xml
