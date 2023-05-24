@@ -5,13 +5,15 @@
 }
 
 body {
-  font-family: 'Roboto Slab', serif;
+  font-family: 'Montserrat', sans-serif;
   line-height: 1.6;
 }
 
 header {
-  background: #333;
-  padding: 1rem;
+  background: #f8f8f8;
+  padding: 15px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
 }
 
 header nav ul {
@@ -25,7 +27,7 @@ header nav ul li {
 }
 
 header nav ul li a {
-  color: #fff;
+  color: #333;
   text-decoration: none;
 }
 
