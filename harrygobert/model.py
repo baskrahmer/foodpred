@@ -22,7 +22,10 @@ class OFFClassificationModel(LightningModule):
         self.readout = nn.Linear(self.base_model.config.hidden_size, cfg.n_classes)
 
         # Loss
-        self.loss = nn.CrossEntropyLoss(weight=torch.tensor(label_weights, dtype=torch.float32))
+        if label_weights is not None:
+            self.loss = nn.CrossEntropyLoss(weight=torch.tensor(label_weights, dtype=torch.float32))
+        else:
+            self.loss = nn.CrossEntropyLoss()
 
         # Metrics
         self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=cfg.n_classes)
