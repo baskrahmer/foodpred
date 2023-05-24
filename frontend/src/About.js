@@ -12,6 +12,7 @@ function About() {
           not present in common databases like OpenFoodFacts. For more information and technical details, visit the <a href="https://github.com/baskrahmer/harrygobert">source code</a>.
           Found a bug? Please consider reporting an issue to <a href="https://github.com/baskrahmer/harrygobert/issues">GitHub</a>.
         </p>
+        <br/>
         <h1>Limitations</h1>
         <p>
           Foodpred is trained on all OpenFoodFacts products for which a CIQUAL classification is known. This
